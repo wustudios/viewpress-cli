@@ -9,6 +9,14 @@ import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { getExitCode } from '../output/get-exit-code.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
+const maxRedirectCount = 5;
+
+interface DownloadRequest {
+  signal: AbortSignal;
+  timeoutSec: number;
+  url: URL;
+}
+
 export async function downloadAsset(urlValue: string, output: string, force: boolean): Promise<void> {
   const url = getDownloadUrl(urlValue);
 
@@ -68,21 +76,59 @@ async function writeDownloadToFile(url: URL, output: string): Promise<void> {
 async function fetchDownload(url: URL): Promise<Response> {
   const timeoutSec = getRuntimeOptions().timeoutSec;
   const signal = AbortSignal.timeout(timeoutSec * 1_000);
+  let downloadUrl = url;
 
+  for (let redirectCount = 0; redirectCount <= maxRedirectCount; redirectCount += 1) {
+    const response = await fetchDownloadResponse({ signal, timeoutSec, url: downloadUrl });
+    if (!isRedirectResponse(response)) {
+      return response;
+    }
+    if (redirectCount === maxRedirectCount) {
+      throw new Error(`Asset download exceeded ${String(maxRedirectCount)} redirects.`);
+    }
+    downloadUrl = getRedirectUrl(response, downloadUrl);
+  }
+  throw new Error('Asset download redirect handling failed.');
+}
+
+async function fetchDownloadResponse(request: DownloadRequest): Promise<Response> {
   try {
-    return await fetch(url, { signal });
+    return await fetch(request.url, { redirect: 'manual', signal: request.signal });
   } catch (error) {
-    if (signal.aborted) {
+    if (request.signal.aborted) {
       throw new CliError({
-        exitCode: 4,
-        message: `Request timed out after ${String(timeoutSec)} seconds.`,
-        type: 'timeout_error',
+        exitCode: 4, message: `Request timed out after ${String(request.timeoutSec)} seconds.`, type: 'timeout_error',
       });
     }
-
     const message = error instanceof Error ? error.message : 'Could not download the asset.';
     throw new CliError({ exitCode: 5, message, type: 'transport_error' });
   }
+}
+
+function isRedirectResponse(response: Response): boolean {
+  return response.status === 301
+    || response.status === 302
+    || response.status === 303
+    || response.status === 307
+    || response.status === 308;
+}
+
+function getRedirectUrl(response: Response, sourceUrl: URL): URL {
+  const location = response.headers.get('Location');
+  if (!location) {
+    throw new Error('Asset download returned a redirect without a location.');
+  }
+  let value: string;
+  try {
+    value = new URL(location, sourceUrl).href;
+  } catch {
+    throw new Error('Viewpress returned an invalid asset download URL.');
+  }
+  const redirectUrl = getDownloadUrl(value);
+  if (sourceUrl.protocol === 'https:' && redirectUrl.protocol !== 'https:') {
+    throw new Error('Viewpress returned an insecure asset download redirect.');
+  }
+  return redirectUrl;
 }
 
 async function writeDownloadToStdout(response: Response): Promise<void> {

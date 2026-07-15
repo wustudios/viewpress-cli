@@ -146,6 +146,10 @@ describe('asset commands', () => {
     const outputPath = join(configDirectory, 'asset.bin');
     const stdoutDownload = await runCli(['assets', 'download', 'asset-download', '--output', '-']);
     const fileDownload = await runCli(['assets', 'download', 'asset-download', '--output', outputPath]);
+    const redirectDownload = await runCli(['assets', 'download', 'asset-redirect', '--output', '-']);
+    const credentialRedirect = await runCli(['assets', 'download', 'asset-redirect-credentials', '--output', '-']);
+    const insecureRedirect = await runCli(['assets', 'download', 'asset-redirect-insecure', '--output', '-']);
+    const redirectLoop = await runCli(['assets', 'download', 'asset-redirect-loop', '--output', '-']);
     const downloadRequests = requests.filter((request) => request.pathname === '/files/good');
 
     expect(stdoutDownload).toEqual({ exitCode: 0, stderr: '', stdout: 'asset bytes' });
@@ -154,9 +158,26 @@ describe('asset commands', () => {
       stderr: '',
       stdout: `Downloaded asset asset-download to ${outputPath}.\n`,
     });
+    expect(redirectDownload).toEqual({ exitCode: 0, stderr: '', stdout: 'asset bytes' });
+    expect(credentialRedirect).toEqual({
+      exitCode: 1,
+      stderr: 'Error: Viewpress returned an asset download URL containing credentials.\n',
+      stdout: '',
+    });
+    expect(insecureRedirect).toEqual({
+      exitCode: 1,
+      stderr: 'Error: Viewpress returned an insecure asset download URL.\n',
+      stdout: '',
+    });
+    expect(redirectLoop).toEqual({
+      exitCode: 1,
+      stderr: 'Error: Asset download exceeded 5 redirects.\n',
+      stdout: '',
+    });
     expect(await readFile(outputPath, 'utf8')).toBe('asset bytes');
-    expect(downloadRequests).toHaveLength(2);
-    expect(downloadRequests.every((request) => request.authorization === null)).toBe(true);
+    expect(downloadRequests).toHaveLength(3);
+    expect(requests.filter((request) => request.pathname.startsWith('/files/'))
+      .every((request) => request.authorization === null)).toBe(true);
   });
 
   test('removes a partial temporary download', async () => {
@@ -193,6 +214,21 @@ async function handleRequest(request: Request): Promise<Response> {
   if (url.pathname === '/files/good') {
     return new Response('asset bytes');
   }
+  if (url.pathname === '/files/redirect') {
+    return new Response(null, { headers: { Location: '/files/good' }, status: 302 });
+  }
+  if (url.pathname === '/files/redirect-credentials') {
+    const destination = new URL('/files/good', server.url);
+    destination.username = 'download';
+    destination.password = 'secret';
+    return new Response(null, { headers: { Location: destination.href }, status: 302 });
+  }
+  if (url.pathname === '/files/redirect-insecure') {
+    return new Response(null, { headers: { Location: 'http://example.com/asset' }, status: 302 });
+  }
+  if (url.pathname === '/files/redirect-loop') {
+    return new Response(null, { headers: { Location: '/files/redirect-loop' }, status: 302 });
+  }
   if (url.pathname === '/api/v1/assets') {
     return Response.json({ assets: [getAssetResponse('asset-ready')] });
   }
@@ -220,6 +256,18 @@ function getAssetForPath(pathname: string): ReturnType<typeof getAssetResponse> 
   }
   if (pathname.endsWith('/asset-partial')) {
     return { ...getAssetResponse('asset-partial'), url: partialDownloadUrl };
+  }
+  if (pathname.endsWith('/asset-redirect-credentials')) {
+    return { ...getAssetResponse('asset-redirect-credentials'), url: `${server.url.href}files/redirect-credentials` };
+  }
+  if (pathname.endsWith('/asset-redirect-insecure')) {
+    return { ...getAssetResponse('asset-redirect-insecure'), url: `${server.url.href}files/redirect-insecure` };
+  }
+  if (pathname.endsWith('/asset-redirect-loop')) {
+    return { ...getAssetResponse('asset-redirect-loop'), url: `${server.url.href}files/redirect-loop` };
+  }
+  if (pathname.endsWith('/asset-redirect')) {
+    return { ...getAssetResponse('asset-redirect'), url: `${server.url.href}files/redirect` };
   }
   return getAssetResponse(pathname.split('/').at(-1) ?? 'asset-ready');
 }
