@@ -30,10 +30,10 @@ afterAll(async () => {
 });
 
 describe('video generation commands', () => {
-  test('generates with every supported input and explicit audio choice', async () => {
+  test('uses every video generation command through the CLI', async () => {
     const promptPath = join(configDirectory, 'video-prompt.txt');
     await writeFile(promptPath, 'Move through a neon market at night', 'utf8');
-    const result = await runCli([
+    const generated = await runCli([
       'videos',
       'generate',
       '--video-id',
@@ -65,16 +65,32 @@ describe('video generation commands', () => {
       'No text',
       '--json',
     ]);
-    const request = requests.at(-1);
+    const generationRequest = requests.at(-1);
+    const estimated = await runCli([
+      'videos',
+      'estimate',
+      '--video-id',
+      'video-2',
+      '--name',
+      'Estimate',
+      '--prompt',
+      'Slow camera push',
+      '--model',
+      'V-LITE',
+      '--duration-sec',
+      '6',
+    ]);
+    const estimateRequest = requests.at(-1);
 
-    expect(result).toEqual({
+    expect(generated).toEqual({
       exitCode: 0,
       stderr: '',
       stdout: '{"assetId":"asset-generated","status":"pending"}\n',
     });
-    expect(request?.method).toBe('POST');
-    expect(request?.url.pathname).toBe('/api/v1/videos/generations');
-    expect(request?.body).toEqual({
+    expect(estimated).toEqual({ exitCode: 0, stderr: '', stdout: 'Estimated cost: 14 credits.\n' });
+    expect(generationRequest?.method).toBe('POST');
+    expect(generationRequest?.url.pathname).toBe('/api/v1/videos/generations');
+    expect(generationRequest?.body).toEqual({
       aspect_ratio: '16:9',
       duration_sec: 12,
       end_image_asset_id: 'image-end',
@@ -90,28 +106,8 @@ describe('video generation commands', () => {
       video_id: 'video-1',
       with_audio: false,
     });
-  });
-
-  test('estimates with stable defaults and no optional keys', async () => {
-    const result = await runCli([
-      'videos',
-      'estimate',
-      '--video-id',
-      'video-2',
-      '--name',
-      'Estimate',
-      '--prompt',
-      'Slow camera push',
-      '--model',
-      'V-LITE',
-      '--duration-sec',
-      '6',
-    ]);
-    const request = requests.at(-1);
-
-    expect(result).toEqual({ exitCode: 0, stderr: '', stdout: 'Estimated cost: 14 credits.\n' });
-    expect(request?.url.pathname).toBe('/api/v1/videos/generations');
-    expect(request?.body).toEqual({
+    expect(estimateRequest?.url.pathname).toBe('/api/v1/videos/generations');
+    expect(estimateRequest?.body).toEqual({
       aspect_ratio: '9:16',
       duration_sec: 6,
       estimate_only: true,
@@ -121,10 +117,7 @@ describe('video generation commands', () => {
       video_id: 'video-2',
       with_audio: true,
     });
-  });
-
-  test('starts motion transfer with prompt stdin and explicit defaults', async () => {
-    const result = await runCli(
+    const motionTransfer = await runCli(
       [
         'videos',
         'motion-transfer',
@@ -144,27 +137,7 @@ describe('video generation commands', () => {
       ],
       'Keep the red jacket',
     );
-    const request = requests.at(-1);
-
-    expect(result).toEqual({
-      exitCode: 0,
-      stderr: '',
-      stdout: 'Started video asset asset-motion (pending).\n',
-    });
-    expect(request?.url.pathname).toBe('/api/v1/videos/motion-transfers');
-    expect(request?.body).toEqual({
-      character_orientation: 'image',
-      image_asset_id: 'image-character',
-      keep_original_sound: false,
-      motion_video_asset_id: 'video-motion',
-      name: 'Dance',
-      prompt: 'Keep the red jacket',
-      video_id: 'video-3',
-    });
-  });
-
-  test('starts a talking image with exact defaults', async () => {
-    const result = await runCli([
+    const talkingImage = await runCli([
       'videos',
       'talking-image',
       '--video-id',
@@ -177,25 +150,7 @@ describe('video generation commands', () => {
       'audio-dialogue',
       '--json',
     ]);
-    const request = requests.at(-1);
-
-    expect(result.stdout).toBe('{"assetId":"asset-talking","status":"pending"}\n');
-    expect(result.exitCode).toBe(0);
-    expect(request?.url.pathname).toBe('/api/v1/videos/talking-images');
-    expect(request?.body).toEqual({
-      aspect_ratio: '9:16',
-      audio_asset_id: 'audio-dialogue',
-      caption: false,
-      image_asset_id: 'image-presenter',
-      name: 'Presenter',
-      resolution: '720p',
-      talking_style: 'stable',
-      video_id: 'video-4',
-    });
-  });
-
-  test('starts a UGC ad with repeated image references and all notes', async () => {
-    const result = await runCli([
+    const userGeneratedContentAd = await runCli([
       'videos',
       'ugc-ad',
       '--video-id',
@@ -223,27 +178,7 @@ describe('video generation commands', () => {
       '--aspect-ratio',
       '16:9',
     ]);
-    const request = requests.at(-1);
-
-    expect(result.stdout).toBe('Started video asset asset-ugc (pending).\n');
-    expect(request?.url.pathname).toBe('/api/v1/videos/ugc-ads');
-    expect(request?.body).toEqual({
-      aspect_ratio: '16:9',
-      camera_notes: 'Handheld close-up',
-      dialogue: 'This stays hot all morning.',
-      duration_sec: 10,
-      name: 'Review',
-      reference_image_asset_ids: ['image-front', 'image-side'],
-      reference_video_asset_id: 'video-style',
-      scene_notes: 'Bright kitchen',
-      subject_description: 'A ceramic travel mug',
-      video_id: 'video-5',
-      voice_notes: 'Natural pace',
-    });
-  });
-
-  test('starts a timelapse and returns both asset ids', async () => {
-    const result = await runCli([
+    const timelapse = await runCli([
       'videos',
       'timelapse-scene',
       '--video-id',
@@ -260,13 +195,52 @@ describe('video generation commands', () => {
       'Small sunlit studio',
       '--json',
     ]);
-    const request = requests.at(-1);
 
-    expect(result.stdout).toBe(
+    expect(motionTransfer.stdout).toBe('Started video asset asset-motion (pending).\n');
+    expect(talkingImage.stdout).toBe('{"assetId":"asset-talking","status":"pending"}\n');
+    expect(userGeneratedContentAd.stdout).toBe('Started video asset asset-ugc (pending).\n');
+    expect(timelapse.stdout).toBe(
       '{"assetId":"asset-timelapse","endFrameAssetId":"asset-end-frame","status":"pending"}\n',
     );
-    expect(request?.url.pathname).toBe('/api/v1/videos/timelapse-scenes');
-    expect(request?.body).toEqual({
+    expect(requests.slice(-4).map((request) => request.url.pathname)).toEqual([
+      '/api/v1/videos/motion-transfers',
+      '/api/v1/videos/talking-images',
+      '/api/v1/videos/ugc-ads',
+      '/api/v1/videos/timelapse-scenes',
+    ]);
+    expect(requests.at(-4)?.body).toEqual({
+      character_orientation: 'image',
+      image_asset_id: 'image-character',
+      keep_original_sound: false,
+      motion_video_asset_id: 'video-motion',
+      name: 'Dance',
+      prompt: 'Keep the red jacket',
+      video_id: 'video-3',
+    });
+    expect(requests.at(-3)?.body).toEqual({
+      aspect_ratio: '9:16',
+      audio_asset_id: 'audio-dialogue',
+      caption: false,
+      image_asset_id: 'image-presenter',
+      name: 'Presenter',
+      resolution: '720p',
+      talking_style: 'stable',
+      video_id: 'video-4',
+    });
+    expect(requests.at(-2)?.body).toEqual({
+      aspect_ratio: '16:9',
+      camera_notes: 'Handheld close-up',
+      dialogue: 'This stays hot all morning.',
+      duration_sec: 10,
+      name: 'Review',
+      reference_image_asset_ids: ['image-front', 'image-side'],
+      reference_video_asset_id: 'video-style',
+      scene_notes: 'Bright kitchen',
+      subject_description: 'A ceramic travel mug',
+      video_id: 'video-5',
+      voice_notes: 'Natural pace',
+    });
+    expect(requests.at(-1)?.body).toEqual({
       aspect_ratio: '9:16',
       name: 'Workshop',
       setting_notes: 'Small sunlit studio',
@@ -275,87 +249,6 @@ describe('video generation commands', () => {
       video_id: 'video-6',
       worker_description: 'One carpenter',
     });
-  });
-
-  test('rejects invalid generation inputs before fetch', async () => {
-    const requestCount = requests.length;
-    const invalidLiteDuration = await runCli([
-      'videos',
-      'generate',
-      '--video-id',
-      'video-1',
-      '--name',
-      'Bad duration',
-      '--prompt',
-      'Enough prompt',
-      '--model',
-      'V-LITE',
-      '--duration-sec',
-      '5',
-    ]);
-    const tooManyReferences = await runCli([
-      'videos',
-      'ugc-ad',
-      '--video-id',
-      'video-1',
-      '--name',
-      'Too many',
-      '--subject-description',
-      'A subject long enough',
-      '--dialogue',
-      'Hello',
-      '--duration-sec',
-      '4',
-      '--reference-video-asset-id',
-      'video-ref',
-      ...getReferenceArguments(6),
-    ]);
-    const longMotionPrompt = await runCli([
-      'videos',
-      'motion-transfer',
-      '--video-id',
-      'video-1',
-      '--name',
-      'Long',
-      '--image-asset-id',
-      'image-1',
-      '--motion-video-asset-id',
-      'motion-1',
-      '--prompt',
-      'x'.repeat(2501),
-    ]);
-    const conflictingFlags = await runCli([
-      'videos',
-      'talking-image',
-      '--video-id',
-      'video-1',
-      '--name',
-      'Conflict',
-      '--image-asset-id',
-      'image-1',
-      '--audio-asset-id',
-      'audio-1',
-      '--caption',
-      '--no-caption',
-    ]);
-
-    expect(invalidLiteDuration.exitCode).toBe(2);
-    expect(invalidLiteDuration.stderr).toContain('must be 4, 6, or 8');
-    expect(tooManyReferences.exitCode).toBe(2);
-    expect(tooManyReferences.stderr).toContain('1 to 5');
-    expect(longMotionPrompt.exitCode).toBe(2);
-    expect(longMotionPrompt.stderr).toContain('at most 2500');
-    expect(conflictingFlags.exitCode).toBe(2);
-    expect(conflictingFlags.stderr).toContain('conflicting videos option');
-    expect(requests).toHaveLength(requestCount);
-  });
-
-  test('shows command-specific help without authentication', async () => {
-    const result = await runCli(['videos', 'ugc-ad', '--help'], undefined, false);
-
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe('');
-    expect(result.stdout).toContain('Usage: viewpress videos ugc-ad');
   });
 });
 
@@ -390,14 +283,10 @@ async function handleRequest(request: Request): Promise<Response> {
   return Response.json({ message: 'Not found' }, { status: 404 });
 }
 
-function getReferenceArguments(count: number): string[] {
-  return Array.from({ length: count }, (_, index) => ['--reference-image-asset-id', `image-${String(index)}`]).flat();
-}
-
-async function runCli(arguments_: string[], stdin?: string, authenticated = true): Promise<CliResult> {
+async function runCli(arguments_: string[], stdin?: string): Promise<CliResult> {
   const environment = {
     ...process.env,
-    VIEWPRESS_API_KEY: authenticated ? 'vp_test_key' : undefined,
+    VIEWPRESS_API_KEY: 'vp_test_key',
     VIEWPRESS_API_URL: `${server.url.href}api/v1`,
     VIEWPRESS_CONFIG_DIR: configDirectory,
   };

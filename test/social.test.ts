@@ -128,16 +128,6 @@ describe('social commands', () => {
       { method: 'DELETE', pathname: '/api/v1/social/posts/post-cancel' },
     ]);
   });
-
-  test('rejects an invalid connection URL', async () => {
-    const result = await runCli([
-      'social', 'accounts', 'connect', '--project-id', 'invalid-url', '--platform', 'instagram',
-    ]);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('invalid response');
-  });
 });
 
 async function handleRequest(request: Request): Promise<Response> {
@@ -152,10 +142,9 @@ async function handleRequest(request: Request): Promise<Response> {
     }] });
   }
   if (url.pathname === '/api/v1/social/accounts/connections') {
-    const projectId = (body as { project_id?: string }).project_id;
     return Response.json({
       instructions: 'Open this URL to connect YouTube.',
-      url: projectId === 'invalid-url' ? 'not a URL' : 'https://viewpress.ai/connect/session-1',
+      url: 'https://viewpress.ai/connect/session-1',
     });
   }
   if (url.pathname === '/api/v1/social/posts' && request.method === 'POST') {

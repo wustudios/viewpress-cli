@@ -73,7 +73,7 @@ afterAll(async () => {
 });
 
 describe('asset commands', () => {
-  test('lists, gets, and waits for assets through the public asset schema', async () => {
+  test('gets, lists, waits for, and transforms assets through the CLI', async () => {
     const list = await runCli(['assets', 'list', '--video-id', 'video-1', '--kind', 'video', '--json']);
     const get = await runCli(['assets', 'get', 'asset-ready']);
     const wait = await runCli([
@@ -97,9 +97,6 @@ describe('asset commands', () => {
     });
     expect(requests.find((request) => request.pathname === '/api/v1/assets')?.search)
       .toBe('?limit=50&video_id=video-1&kind=video');
-  });
-
-  test('sends the exact transform paths and request bodies', async () => {
     const requestCount = requests.length;
     const commands = [
       ['add-captions', 'asset-source', '--json'],
@@ -177,17 +174,11 @@ describe('asset commands', () => {
     expect((await readdir(configDirectory)).some((name) => name.startsWith('.partial.bin.'))).toBe(false);
   });
 
-  test('returns nonzero for terminal wait failures and validates upscale dimensions before fetch', async () => {
-    const requestCount = requests.length;
+  test('returns nonzero for terminal wait failures', async () => {
     const terminal = await runCli(['assets', 'wait', 'asset-error', '--poll-interval', '0.01']);
-    const invalid = await runCli(['assets', 'upscale', 'asset-source', '--width', '1920']);
 
     expect(terminal.exitCode).toBe(1);
     expect(terminal.stderr).toContain('ended with status error: render failed');
-    expect(invalid.exitCode).toBe(2);
-    expect(invalid.stderr).toContain('--width and --height together');
-    expect(requests.slice(requestCount).map((request) => request.pathname))
-      .toEqual(['/api/v1/assets/asset-error']);
   });
 });
 

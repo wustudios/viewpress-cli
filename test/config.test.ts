@@ -45,19 +45,6 @@ describe('config', () => {
     expect((await getConfig()).apiKey).toBeNull();
     expect(await readFile(join(configDirectory, 'config.json'), 'utf8')).not.toContain('vp_test_key');
   });
-
-  test('uses environment values before stored values', async () => {
-    process.env.VIEWPRESS_CONFIG_DIR = await getTemporaryConfigDirectory();
-    await setStoredApiKey('vp_stored', 'https://viewpress.ai/api/v1');
-    process.env.VIEWPRESS_API_URL = 'https://example.com/custom/';
-    process.env.VIEWPRESS_API_KEY = 'vp_environment';
-
-    expect(await getConfig()).toEqual({
-      apiKey: 'vp_environment',
-      apiKeySource: 'environment',
-      apiUrl: 'https://example.com/custom',
-    });
-  });
 });
 
 async function getTemporaryConfigDirectory(): Promise<string> {

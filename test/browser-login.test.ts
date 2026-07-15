@@ -43,23 +43,6 @@ describe('loginWithBrowser', () => {
     expect(requests[1]?.url).not.toContain('secret-poll-token');
     expect(requests[2]?.headers.get('Authorization')).toBe('Bearer secret-poll-token');
   });
-
-  test('reports the missing server prerequisite', async () => {
-    const fetchRequest: FetchRequest = () => Promise.resolve(new Response(null, { status: 404 }));
-
-    try {
-      await loginWithBrowser({
-        apiUrl: 'https://viewpress.ai/api/v1',
-        fetchRequest,
-        openUrl: () => Promise.resolve(),
-        wait: () => Promise.resolve(),
-      });
-      throw new Error('Expected browser login to fail');
-    } catch (error) {
-      expect(error).toBeInstanceOf(Error);
-      expect(error).toHaveProperty('message', expect.stringContaining('Browser login needs server support'));
-    }
-  });
 });
 
 function getMockFetch(

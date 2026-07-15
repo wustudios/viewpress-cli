@@ -41,3 +41,7 @@ For each review, print:
 - Either `PASS ALL 10/10` or `FAIL`
 
 Do not soften repeat findings and do not change the scorecard between rounds.
+
+## Test strategy steering
+
+Require exactly one mocked happy-path integration per coherent command family. It must run through real CLI dispatch, config, the HTTP boundary, response validation, and output. Allow only focused negative tests for credential leakage or storage, a malformed persisted credential when needed, external download authorization, truncated download cleanup, and terminal async failure. Flag parser, flag, default, usage, help, and validation microtests as redundant. Do not reward assertion counts. Never use a real API or database.

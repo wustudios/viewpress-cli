@@ -41,3 +41,7 @@ Make atomic conventional lowercase commits using the configured git identity, wi
 Before inventing any command or endpoint, derive it from current Viewpress evidence and document unsupported server requirements clearly.
 
 Work autonomously until a complete first implementation is committed and all local gates pass. Then print exactly `DONE ROUND 0` followed by commit hashes, gate results, and any server contract that the CLI needs but the current app does not expose.
+
+## Test strategy steering
+
+Use exactly one mocked happy-path integration per coherent command family. Run it through real CLI dispatch, config, the HTTP boundary, response validation, and output. Keep only focused negative tests for credential leakage or storage, a malformed persisted credential when needed, external download authorization, truncated download cleanup, and terminal async failure. Delete parser, flag, default, usage, help, and validation microtests. Do not chase assertion counts. Never use a real API or database.

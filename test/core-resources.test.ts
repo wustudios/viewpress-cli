@@ -35,28 +35,11 @@ afterAll(async () => {
 });
 
 describe('core resource commands', () => {
-  test('lists and creates projects with authenticated requests', async () => {
+  test('uses every core resource command through authenticated requests', async () => {
     const listed = await runCli(['projects', 'list', '--json']);
     const created = await runCli(['projects', 'create', '--name', 'Launch', '--json']);
-
-    expect(listed).toEqual({
-      exitCode: 0,
-      stderr: '',
-      stdout: '{"projects":[{"id":"project-1","name":"Main","createdAt":1000}]}\n',
-    });
-    expect(created).toEqual({
-      exitCode: 0,
-      stderr: '',
-      stdout: '{"id":"project-2","name":"Launch"}\n',
-    });
-    expect(requests[0]?.headers.get('Authorization')).toBe('Bearer vp_test_key');
-    expect(requests[1]?.body).toEqual({ name: 'Launch' });
-    expect(requests[1]?.headers.get('Content-Type')).toBe('application/json');
-  });
-
-  test('lists and creates videos with exact project fields', async () => {
-    const listed = await runCli(['videos', 'list', '--project-id', 'project-1', '--json']);
-    const created = await runCli([
+    const listedVideos = await runCli(['videos', 'list', '--project-id', 'project-1', '--json']);
+    const createdVideo = await runCli([
       'videos',
       'create',
       '--project-id',
@@ -65,40 +48,9 @@ describe('core resource commands', () => {
       'Demo',
       '--json',
     ]);
-
-    expect(JSON.parse(listed.stdout)).toEqual({
-      videos: [
-        {
-          createdAt: '2026-07-15T00:00:00.000Z',
-          id: 'video-1',
-          name: 'First',
-          url: 'https://viewpress.ai/videos/video-1',
-        },
-      ],
-    });
-    expect(JSON.parse(created.stdout)).toEqual({
-      id: 'video-2',
-      name: 'Demo',
-      url: 'https://viewpress.ai/videos/video-2',
-    });
-    expect(requests[2]?.url.searchParams.get('project_id')).toBe('project-1');
-    expect(requests[3]?.body).toEqual({ name: 'Demo', project_id: 'project-1' });
-  });
-
-  test('gets credits and the complete styles catalog', async () => {
     const credits = await runCli(['credits', 'get', '--json']);
     const styles = await runCli(['styles', 'list', '--json']);
-    const humanCredits = await runCli(['credits', 'get']);
-
-    expect(JSON.parse(credits.stdout)).toEqual({ available: 8, held: 2, total: 10 });
-    expect(JSON.parse(styles.stdout)).toEqual(getStylesResponse());
-    expect(humanCredits.stdout).toBe('Total: 10\nAvailable: 8\nHeld: 2\n');
-    expect(credits.exitCode).toBe(0);
-    expect(styles.exitCode).toBe(0);
-  });
-
-  test('lists voices with validated filters and presets', async () => {
-    const result = await runCli([
+    const voices = await runCli([
       'voices',
       'list',
       '--project-id',
@@ -111,10 +63,27 @@ describe('core resource commands', () => {
       '12',
       '--json',
     ]);
-    const request = requests.at(-1);
 
-    expect(result.exitCode).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({
+    expect(listed.stdout).toBe('{"projects":[{"id":"project-1","name":"Main","createdAt":1000}]}\n');
+    expect(created.stdout).toBe('{"id":"project-2","name":"Launch"}\n');
+    expect(JSON.parse(listedVideos.stdout)).toEqual({
+      videos: [
+        {
+          createdAt: '2026-07-15T00:00:00.000Z',
+          id: 'video-1',
+          name: 'First',
+          url: 'https://viewpress.ai/videos/video-1',
+        },
+      ],
+    });
+    expect(JSON.parse(createdVideo.stdout)).toEqual({
+      id: 'video-2',
+      name: 'Demo',
+      url: 'https://viewpress.ai/videos/video-2',
+    });
+    expect(JSON.parse(credits.stdout)).toEqual({ available: 8, held: 2, total: 10 });
+    expect(JSON.parse(styles.stdout)).toEqual(getStylesResponse());
+    expect(JSON.parse(voices.stdout)).toEqual({
       presets: ['Wise_Woman'],
       voices: [
         {
@@ -128,24 +97,14 @@ describe('core resource commands', () => {
         },
       ],
     });
-    expect(request?.url.searchParams.toString()).toBe(
+    expect(requests[0]?.headers.get('Authorization')).toBe('Bearer vp_test_key');
+    expect(requests[1]?.body).toEqual({ name: 'Launch' });
+    expect(requests[1]?.headers.get('Content-Type')).toBe('application/json');
+    expect(requests[2]?.url.searchParams.get('project_id')).toBe('project-1');
+    expect(requests[3]?.body).toEqual({ name: 'Demo', project_id: 'project-1' });
+    expect(requests.at(-1)?.url.searchParams.toString()).toBe(
       'project_id=project-1&query=calm&gender=female&limit=12',
     );
-  });
-
-  test('rejects missing values and unknown flags before fetch', async () => {
-    const requestCount = requests.length;
-    const missing = await runCli(['videos', 'create', '--project-id', 'project-1']);
-    const missingValue = await runCli(['projects', 'create', '--name', '--json']);
-    const unknown = await runCli(['voices', 'list', '--project-id', 'project-1', '--unknown']);
-
-    expect(missing.exitCode).toBe(2);
-    expect(missing.stderr).toContain('requires --name');
-    expect(missingValue.exitCode).toBe(2);
-    expect(missingValue.stderr).toContain('--name requires a value');
-    expect(unknown.exitCode).toBe(2);
-    expect(unknown.stderr).toContain('Unknown or repeated');
-    expect(requests).toHaveLength(requestCount);
   });
 });
 
