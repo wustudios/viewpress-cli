@@ -3,6 +3,9 @@ export function showHelp(): void {
 
 Usage: viewpress [options] [command]
 
+Commands:
+  auth             Sign in or manage the stored API key
+
 Options:
   -V, --version  Show the installed version
   -h, --help     Show help
