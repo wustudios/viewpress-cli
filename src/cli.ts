@@ -3,6 +3,7 @@
 import packageJson from '../package.json' with { type: 'json' };
 import { runAuth } from './commands/run-auth.ts';
 import { runCredits } from './commands/run-credits.ts';
+import { runImages } from './commands/run-images.ts';
 import { runProjects } from './commands/run-projects.ts';
 import { runStyles } from './commands/run-styles.ts';
 import { runVideos } from './commands/run-videos.ts';
@@ -38,6 +39,10 @@ async function runCli(cliArguments: string[]): Promise<number> {
 
   if (command === 'credits') {
     return runCredits(cliArguments.slice(1));
+  }
+
+  if (command === 'images') {
+    return runImages(cliArguments.slice(1));
   }
 
   if (command === 'styles') {

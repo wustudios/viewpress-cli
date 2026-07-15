@@ -10,6 +10,7 @@ Commands:
   credits get                  Show the credit balance
   styles list                  List generation styles and image models
   voices list                  List saved voices and built-in presets
+  images generate|edit         Generate or edit images
 
 Options:
   -V, --version  Show the installed version
