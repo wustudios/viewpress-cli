@@ -1,0 +1,77 @@
+# REVIEW ROUND 5
+
+HEAD: 36b72d3ca979231c2917702cd3fc9617573e8ba1
+
+## Scorecard
+
+1. Product and API completeness — 10/10: Commands cover all 34 current v1 operations, and unavailable server capabilities remain recorded as explicit contract gaps.
+2. Command ergonomics and human UX — 10/10: Root and leaf help, global flags, version output, usage errors, and human output are consistent.
+3. Automation and agent contract — 10/10: JSON output and exit codes now distinguish API failure, timeout, transport, file I/O, and terminal async outcomes consistently.
+4. Browser auth, security, and config — 10/10: Credential storage, browser-token handling, URL restrictions, redirect validation, and external-download authorization boundaries pass inspection and probes.
+
+5. Correctness and boundary validation — 10/10: Response schemas, redirects, HTTP errors, malformed responses, body deadlines, and stream failures are classified at the correct boundaries.
+6. Code quality and house conventions — 10/10: Strict TypeScript and lint pass; the response and download fixes use short, named helpers with separated responsibilities.
+7. Unit/integration test quality with no live API or database I/O — 9/10: The suite has one mocked happy integration per family, but the download integration repeats file/stdout parity across more redirect-error variants than the lean-test directive permits.
+
+8. API docs, README, build, and distribution — 10/10: Documentation matches inspected contracts, and native, cross-platform, smoke, and checksum gates all pass.
+9. Async behavior, failures, and cross-platform robustness — 10/10: Stalled bodies exit 4, interrupted bodies exit 5, download cleanup succeeds, and all five target binaries build correctly.
+10. Repository hygiene and atomic commit quality — 10/10: HEAD is clean, commits are atomic and conventional with reasons, configured identity is retained, and no AI attribution exists.
+
+## Round 4 finding verification
+
+- Asset response failures changing exit code by output destination — fixed. Independent loopback probes returned exit 1 for both stdout and file output on an insecure redirect and HTTP 404. Response validation now occurs before the file-stream cleanup boundary at src/commands/download-asset.ts:45.
+
+- API deadlines after response headers returning exit 1 — fixed. An independent stalled-body probe returned timeout exit 4, while a truncated body returned transport exit 5. Deadline state is retained through body parsing at src/api/get-api-response.ts:100.
+
+No Round 4 finding remains open.
+
+## Findings
+
+### Low — Asset download coverage repeats the same output-parity invariant
+
+WHAT: The download integration now dispatches credential, insecure, malformed, and HTTP-status failures through multiple stdout/file combinations. credentialFile and the malformed raw/file pair do not establish a distinct invariant beyond the insecure-redirect and HTTP 404 parity checks. They add three CLI launches and test-only routing for behavior already covered.
+
+WHERE: The repeated dispatches are at test/assets.test.ts:163, with repeated equality assertions at test/assets.test.ts:183. The malformed-only mock branches are at test/assets.test.ts:279 and test/assets.test.ts:322.
+
+WHAT GOOD LOOKS LIKE: Under the test-strategy steering in .claude/reviewer.md, retain exactly one mocked happy-path integration per coherent family and only the minimum security/correctness-critical negatives. Keep credential non-forwarding, insecure redirect rejection, redirect limits, one representative redirect file/stdout parity check, one HTTP-status parity check, truncated cleanup, timeout, and terminal async behavior. Remove duplicate output-mode variants that prove no additional contract.
+
+## Exact gates run
+
+- Read .claude/reviewer.md and .claude/reviews/round4.txt.
+- Read ViewPress AGENTS.md, CLAUDE.md, and convex/_generated/ai/guidelines.md.
+- Inspected ViewPress source read-only, including all public v1 handlers, media import, video generation, and style catalog contracts.
+- rg --files src/app/api/v1 | rg '/route\.ts$' | wc -l — 30 route files.
+- v1 handler inventory — 34 HTTP handlers.
+- npm run check — PASS:
+    - TypeScript — PASS
+    - ESLint — PASS
+    - Bun tests — 13 passed, 0 failed, 117 expectations
+    - Documentation check — PASS
+
+- npm run build:native — PASS.
+- npm run smoke against native build — PASS.
+- npm run build — PASS for all five targets.
+- npm run smoke against release build — PASS.
+- npm run release:checksums — PASS.
+- shasum -a 256 -c SHA256SUMS — PASS for all five binaries.
+- file dist/viewpress-* — PASS: Mach-O arm64/x64, ELF arm64/x64, and PE32+ x64.
+- Compiled root help, asset-download help, and version probes — PASS.
+- Compiled auth login --json probe — documented exit 2.
+- Conflicting speech voice-source probe — usage exit 2.
+- FTP loopback and remote HTTP API URL probes — rejected with exit 2.
+- Independent download loopback probe:
+    - Insecure redirect to stdout/file — both exit 1.
+    - HTTP 404 to stdout/file — both exit 1.
+
+- Independent API-body loopback probe:
+    - Truncated body — transport exit 5.
+    - Stalled post-header body — timeout exit 4.
+
+- Mock credential storage, browser polling, redirect validation, authorization non-forwarding, stream cleanup, and terminal async gates — PASS.
+- git diff --check — PASS.
+- git status --short --untracked-files=all — clean.
+- Configured identity and AI-attribution scan — PASS.
+- git fsck --no-progress --no-dangling — PASS.
+- No live ViewPress API or database access was performed.
+
+FAIL
