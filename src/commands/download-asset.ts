@@ -23,6 +23,12 @@ interface DownloadResponse {
   timeoutSec: number;
 }
 
+interface FileDownload {
+  body: ReadableStream<Uint8Array>;
+  download: DownloadResponse;
+  output: string;
+}
+
 export async function downloadAsset(urlValue: string, output: string, force: boolean): Promise<void> {
   const url = getDownloadUrl(urlValue);
 
@@ -36,7 +42,9 @@ export async function downloadAsset(urlValue: string, output: string, force: boo
     throw new CommandUsageError(`Output file already exists: ${output}. Use --force to replace it.`);
   }
 
-  await writeDownloadToFile(url, output);
+  const download = await fetchDownload(url);
+  const body = getDownloadBody(download.response);
+  await writeDownloadToFile({ body, download, output });
 }
 
 function getDownloadUrl(value: string): URL {
@@ -60,18 +68,15 @@ function getDownloadUrl(value: string): URL {
   return url;
 }
 
-async function writeDownloadToFile(url: URL, output: string): Promise<void> {
-  const temporaryPath = join(dirname(output), `.${basename(output)}.${crypto.randomUUID()}.tmp`);
-  let download: DownloadResponse | undefined;
+async function writeDownloadToFile(values: FileDownload): Promise<void> {
+  const temporaryPath = join(dirname(values.output), `.${basename(values.output)}.${crypto.randomUUID()}.tmp`);
 
   try {
-    download = await fetchDownload(url);
-    const body = getDownloadBody(download.response);
-    await pipeline(Readable.fromWeb(body), createWriteStream(temporaryPath, { flags: 'wx' }));
-    await rename(temporaryPath, output);
+    await pipeline(Readable.fromWeb(values.body), createWriteStream(temporaryPath, { flags: 'wx' }));
+    await rename(temporaryPath, values.output);
   } catch (error) {
     await rm(temporaryPath, { force: true });
-    throw getDownloadStreamError(error, download);
+    throw getDownloadStreamError(error, values.download);
   }
 }
 
@@ -147,14 +152,14 @@ async function writeDownloadToStdout(download: DownloadResponse): Promise<void> 
   }
 }
 
-function getDownloadStreamError(error: unknown, download: DownloadResponse | undefined): Error {
+function getDownloadStreamError(error: unknown, download: DownloadResponse): Error {
   if (error instanceof CliError) {
     return error;
   }
   if (error instanceof Error && getExitCode(error) === 6) {
     return error;
   }
-  if (download?.signal.aborted) {
+  if (download.signal.aborted) {
     return new CliError({
       exitCode: 4,
       message: `Request timed out after ${String(download.timeoutSec)} seconds.`,
