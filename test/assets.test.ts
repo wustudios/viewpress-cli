@@ -39,12 +39,20 @@ let configDirectory = '';
 let partialDownloadUrl = '';
 let partialServer: ReturnType<typeof createServer>;
 let server: ReturnType<typeof Bun.serve>;
+let timeoutDownloadUrl = '';
 let waitRequestCount = 0;
 
 beforeAll(async () => {
   configDirectory = await mkdtemp(join(tmpdir(), 'viewpress-cli-assets-'));
   partialServer = createServer((socket) => {
-    socket.end('HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\npartial');
+    socket.once('data', (request) => {
+      const response = 'HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\npartial';
+      if (request.toString().startsWith('GET /timeout ')) {
+        socket.write(response);
+        return;
+      }
+      socket.end(response);
+    });
   });
   await new Promise<void>((resolve, reject) => {
     partialServer.once('error', reject);
@@ -55,6 +63,7 @@ beforeAll(async () => {
     throw new Error('Partial download server did not expose a TCP port.');
   }
   partialDownloadUrl = `http://127.0.0.1:${String(partialAddress.port)}/partial`;
+  timeoutDownloadUrl = `http://127.0.0.1:${String(partialAddress.port)}/timeout`;
   server = Bun.serve({ fetch: handleRequest, hostname: '127.0.0.1', port: 0 });
 });
 
@@ -180,13 +189,28 @@ describe('asset commands', () => {
       .every((request) => request.authorization === null)).toBe(true);
   });
 
-  test('removes a partial temporary download', async () => {
+  test('classifies interrupted and timed out streams and removes temporary downloads', async () => {
     const partialPath = join(configDirectory, 'partial.bin');
-    const partial = await runCli(['assets', 'download', 'asset-partial', '--output', partialPath]);
+    const timeoutPath = join(configDirectory, 'timeout.bin');
+    const partialFile = await runCli(['assets', 'download', 'asset-partial', '--output', partialPath]);
+    const partialRaw = await runCli(['assets', 'download', 'asset-partial', '--output', '-']);
+    const timeoutFile = await runCli([
+      '--timeout', '0.1', 'assets', 'download', 'asset-timeout', '--output', timeoutPath,
+    ]);
+    const timeoutRaw = await runCli([
+      '--timeout', '0.1', 'assets', 'download', 'asset-timeout', '--output', '-',
+    ]);
+    const outputFiles = await readdir(configDirectory);
 
-    expect(partial.exitCode).toBe(5);
-    expect(await readdir(configDirectory)).not.toContain('partial.bin');
-    expect((await readdir(configDirectory)).some((name) => name.startsWith('.partial.bin.'))).toBe(false);
+    expect(partialFile.exitCode).toBe(5);
+    expect(partialRaw.exitCode).toBe(5);
+    expect(partialRaw.stdout).toBe('partial');
+    expect(timeoutFile.exitCode).toBe(4);
+    expect(timeoutRaw.exitCode).toBe(4);
+    expect(timeoutRaw.stdout).toBe('partial');
+    expect(outputFiles).not.toContain('partial.bin');
+    expect(outputFiles).not.toContain('timeout.bin');
+    expect(outputFiles.some((name) => name.startsWith('.partial.bin.') || name.startsWith('.timeout.bin.'))).toBe(false);
   });
 
   test('returns a JSON error for terminal wait failures', async () => {
@@ -256,6 +280,9 @@ function getAssetForPath(pathname: string): ReturnType<typeof getAssetResponse> 
   }
   if (pathname.endsWith('/asset-partial')) {
     return { ...getAssetResponse('asset-partial'), url: partialDownloadUrl };
+  }
+  if (pathname.endsWith('/asset-timeout')) {
+    return { ...getAssetResponse('asset-timeout'), url: timeoutDownloadUrl };
   }
   if (pathname.endsWith('/asset-redirect-credentials')) {
     return { ...getAssetResponse('asset-redirect-credentials'), url: `${server.url.href}files/redirect-credentials` };

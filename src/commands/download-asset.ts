@@ -17,12 +17,18 @@ interface DownloadRequest {
   url: URL;
 }
 
+interface DownloadResponse {
+  response: Response;
+  signal: AbortSignal;
+  timeoutSec: number;
+}
+
 export async function downloadAsset(urlValue: string, output: string, force: boolean): Promise<void> {
   const url = getDownloadUrl(urlValue);
 
   if (output === '-') {
-    const response = await fetchDownload(url);
-    await writeDownloadToStdout(response);
+    const download = await fetchDownload(url);
+    await writeDownloadToStdout(download);
     return;
   }
 
@@ -56,24 +62,20 @@ function getDownloadUrl(value: string): URL {
 
 async function writeDownloadToFile(url: URL, output: string): Promise<void> {
   const temporaryPath = join(dirname(output), `.${basename(output)}.${crypto.randomUUID()}.tmp`);
+  let download: DownloadResponse | undefined;
 
   try {
-    const response = await fetchDownload(url);
-    const body = getDownloadBody(response);
+    download = await fetchDownload(url);
+    const body = getDownloadBody(download.response);
     await pipeline(Readable.fromWeb(body), createWriteStream(temporaryPath, { flags: 'wx' }));
     await rename(temporaryPath, output);
   } catch (error) {
     await rm(temporaryPath, { force: true });
-    if (error instanceof CliError || getExitCode(error) === 6) {
-      throw error;
-    }
-
-    const message = error instanceof Error ? error.message : 'The asset download was interrupted.';
-    throw new CliError({ exitCode: 5, message, type: 'transport_error' });
+    throw getDownloadStreamError(error, download);
   }
 }
 
-async function fetchDownload(url: URL): Promise<Response> {
+async function fetchDownload(url: URL): Promise<DownloadResponse> {
   const timeoutSec = getRuntimeOptions().timeoutSec;
   const signal = AbortSignal.timeout(timeoutSec * 1_000);
   let downloadUrl = url;
@@ -81,7 +83,7 @@ async function fetchDownload(url: URL): Promise<Response> {
   for (let redirectCount = 0; redirectCount <= maxRedirectCount; redirectCount += 1) {
     const response = await fetchDownloadResponse({ signal, timeoutSec, url: downloadUrl });
     if (!isRedirectResponse(response)) {
-      return response;
+      return { response, signal, timeoutSec };
     }
     if (redirectCount === maxRedirectCount) {
       throw new Error(`Asset download exceeded ${String(maxRedirectCount)} redirects.`);
@@ -131,15 +133,36 @@ function getRedirectUrl(response: Response, sourceUrl: URL): URL {
   return redirectUrl;
 }
 
-async function writeDownloadToStdout(response: Response): Promise<void> {
-  const body = getDownloadBody(response);
-  const reader = body.getReader();
-  let result = await reader.read();
-
-  while (!result.done) {
-    await writeStdoutChunk(result.value);
-    result = await reader.read();
+async function writeDownloadToStdout(download: DownloadResponse): Promise<void> {
+  const body = getDownloadBody(download.response);
+  try {
+    const reader = body.getReader();
+    let result = await reader.read();
+    while (!result.done) {
+      await writeStdoutChunk(result.value);
+      result = await reader.read();
+    }
+  } catch (error) {
+    throw getDownloadStreamError(error, download);
   }
+}
+
+function getDownloadStreamError(error: unknown, download: DownloadResponse | undefined): Error {
+  if (error instanceof CliError) {
+    return error;
+  }
+  if (error instanceof Error && getExitCode(error) === 6) {
+    return error;
+  }
+  if (download?.signal.aborted) {
+    return new CliError({
+      exitCode: 4,
+      message: `Request timed out after ${String(download.timeoutSec)} seconds.`,
+      type: 'timeout_error',
+    });
+  }
+  const message = error instanceof Error ? error.message : 'The asset download was interrupted.';
+  return new CliError({ exitCode: 5, message, type: 'transport_error' });
 }
 
 function getDownloadBody(response: Response): ReadableStream<Uint8Array> {
