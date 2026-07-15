@@ -1,56 +1,75 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { expect, test } from 'bun:test';
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { platform } from 'node:process';
 
-import { getConfig } from '../src/config/get-config.ts';
-import { removeStoredApiKey } from '../src/config/remove-stored-api-key.ts';
-import { setStoredApiKey } from '../src/config/set-stored-api-key.ts';
+interface CliResult {
+  exitCode: number;
+  stderr: string;
+  stdout: string;
+}
 
-const originalConfigDirectory = process.env.VIEWPRESS_CONFIG_DIR;
-const originalApiUrl = process.env.VIEWPRESS_API_URL;
-const originalApiKey = process.env.VIEWPRESS_API_KEY;
-const temporaryDirectories: string[] = [];
+test('sets, reports, and removes stored credentials through the CLI', async () => {
+  const configDirectory = await mkdtemp(join(tmpdir(), 'viewpress-cli-auth-'));
 
-afterEach(async () => {
-  setEnvironment('VIEWPRESS_CONFIG_DIR', originalConfigDirectory);
-  setEnvironment('VIEWPRESS_API_URL', originalApiUrl);
-  setEnvironment('VIEWPRESS_API_KEY', originalApiKey);
+  try {
+    const setKey = await runCli(
+      configDirectory,
+      ['--api-url', 'https://viewpress.ai/api/v1', '--json', 'auth', 'set-key'],
+      'vp_test_key\n',
+    );
+    const status = await runCli(configDirectory, ['--json', 'auth', 'status']);
 
-  await Promise.all(
-    temporaryDirectories.splice(0).map(async (path) => {
-      await rm(path, { force: true, recursive: true });
-    }),
-  );
-});
-
-describe('config', () => {
-  test('stores a key in a private config file and removes it', async () => {
-    const configDirectory = await getTemporaryConfigDirectory();
-    process.env.VIEWPRESS_CONFIG_DIR = configDirectory;
-    delete process.env.VIEWPRESS_API_URL;
-    delete process.env.VIEWPRESS_API_KEY;
-
-    await setStoredApiKey('vp_test_key', 'https://viewpress.ai/api/v1');
-
-    expect(await getConfig()).toEqual({
-      apiKey: 'vp_test_key',
-      apiKeySource: 'file',
-      apiUrl: 'https://viewpress.ai/api/v1',
+    expect(setKey).toEqual({
+      exitCode: 0,
+      stderr: '',
+      stdout: '{"ok":true,"data":{"apiUrl":"https://viewpress.ai/api/v1","saved":true}}\n',
     });
+    expect(setKey.stdout).not.toContain('vp_test_key');
+    expect(status).toEqual({
+      exitCode: 0,
+      stderr: '',
+      stdout: '{"ok":true,"data":{"apiUrl":"https://viewpress.ai/api/v1","authenticated":true,"source":"file"}}\n',
+    });
+    expect(await readFile(join(configDirectory, 'config.json'), 'utf8')).toContain('vp_test_key');
     await expectPrivateModes(configDirectory);
 
-    await removeStoredApiKey();
-    expect((await getConfig()).apiKey).toBeNull();
+    const logout = await runCli(configDirectory, ['--json', 'auth', 'logout']);
+
+    expect(logout).toEqual({
+      exitCode: 0,
+      stderr: '',
+      stdout: '{"ok":true,"data":{"removed":true}}\n',
+    });
     expect(await readFile(join(configDirectory, 'config.json'), 'utf8')).not.toContain('vp_test_key');
-  });
+  } finally {
+    await rm(configDirectory, { force: true, recursive: true });
+  }
 });
 
-async function getTemporaryConfigDirectory(): Promise<string> {
-  const path = await mkdtemp(join(tmpdir(), 'viewpress-cli-config-'));
-  temporaryDirectories.push(path);
-  return path;
+async function runCli(
+  configDirectory: string,
+  arguments_: string[],
+  stdin?: string,
+): Promise<CliResult> {
+  const environment = { ...process.env, VIEWPRESS_CONFIG_DIR: configDirectory };
+  Reflect.deleteProperty(environment, 'VIEWPRESS_API_KEY');
+  Reflect.deleteProperty(environment, 'VIEWPRESS_API_URL');
+  const childProcess = Bun.spawn(['bun', 'run', 'src/cli.ts', ...arguments_], {
+    cwd: new URL('..', import.meta.url).pathname,
+    env: environment,
+    stderr: 'pipe',
+    stdin: stdin === undefined ? 'ignore' : new Response(stdin),
+    stdout: 'pipe',
+  });
+  const [exitCode, stderr, stdout] = await Promise.all([
+    childProcess.exited,
+    new Response(childProcess.stderr).text(),
+    new Response(childProcess.stdout).text(),
+  ]);
+
+  return { exitCode, stderr, stdout };
 }
 
 async function expectPrivateModes(configDirectory: string): Promise<void> {
@@ -62,13 +81,4 @@ async function expectPrivateModes(configDirectory: string): Promise<void> {
   const fileStats = await stat(join(configDirectory, 'config.json'));
   expect(directoryStats.mode & 0o777).toBe(0o700);
   expect(fileStats.mode & 0o777).toBe(0o600);
-}
-
-function setEnvironment(name: string, value: string | undefined): void {
-  if (value === undefined) {
-    Reflect.deleteProperty(process.env, name);
-    return;
-  }
-
-  process.env[name] = value;
 }
