@@ -59,6 +59,13 @@ interface VideoGenerationOptions {
   withAudio: boolean;
 }
 
+interface VideoGenerationArgument {
+  arguments_: string[];
+  index: number;
+  input: VideoGenerationInput;
+  seen: Set<string>;
+}
+
 export async function runVideoGeneration(command: 'estimate' | 'generate', arguments_: string[]): Promise<void> {
   if (arguments_.length === 1 && (arguments_[0] === '--help' || arguments_[0] === '-h')) {
     showVideoGenerationHelp(command);
@@ -102,66 +109,66 @@ function getVideoGenerationInput(arguments_: string[]): VideoGenerationInput {
     aspectRatio: '9:16',
     durationSec: undefined,
     endImageAssetId: undefined,
-    json: false,
-    model: undefined,
-    name: undefined,
+    json: false, model: undefined, name: undefined,
     negativePrompt: undefined,
-    prompt: undefined,
-    promptFile: undefined,
+    prompt: undefined, promptFile: undefined,
     referenceAudioAssetIds: [],
     referenceImageAssetIds: [],
     referenceVideoAssetIds: [],
-    startImageAssetId: undefined,
-    videoId: undefined,
+    startImageAssetId: undefined, videoId: undefined,
     withAudio: true,
   };
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-
-    if (argument === '--json' && !input.json) {
-      input.json = true;
-      continue;
-    }
-
-    if (argument === '--reference-image-asset-id') {
-      input.referenceImageAssetIds.push(getOptionValue(arguments_, index, argument));
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--reference-video-asset-id') {
-      input.referenceVideoAssetIds.push(getOptionValue(arguments_, index, argument));
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--reference-audio-asset-id') {
-      input.referenceAudioAssetIds.push(getOptionValue(arguments_, index, argument));
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--with-audio' || argument === '--no-audio') {
-      guardNewOption(seen, 'audio', argument);
-      input.withAudio = argument === '--with-audio';
-      continue;
-    }
-
-    const property = getGenerationProperty(argument);
-    if (property) {
-      const option = String(argument);
-      guardNewOption(seen, property, option);
-      input[property] = getOptionValue(arguments_, index, option);
-      index += 1;
-      continue;
-    }
-
-    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
+    index = readVideoGenerationArgument({ arguments_, index, input, seen });
   }
 
   return input;
+}
+
+function readVideoGenerationArgument(values: VideoGenerationArgument): number {
+  const argument = values.arguments_[values.index];
+  if (argument === '--json' && !values.input.json) {
+    values.input.json = true;
+    return values.index;
+  }
+  const referenceIds = getGenerationReferenceIds(values.input, argument);
+  if (referenceIds) {
+    referenceIds.push(getOptionValue(values.arguments_, values.index, String(argument)));
+    return values.index + 1;
+  }
+  if (argument === '--with-audio' || argument === '--no-audio') {
+    guardNewOption(values.seen, 'audio', argument);
+    values.input.withAudio = argument === '--with-audio';
+    return values.index;
+  }
+  return readVideoGenerationValue(values);
+}
+
+function getGenerationReferenceIds(input: VideoGenerationInput, argument: string | undefined): string[] | null {
+  if (argument === '--reference-image-asset-id') {
+    return input.referenceImageAssetIds;
+  }
+  if (argument === '--reference-video-asset-id') {
+    return input.referenceVideoAssetIds;
+  }
+  if (argument === '--reference-audio-asset-id') {
+    return input.referenceAudioAssetIds;
+  }
+  return null;
+}
+
+function readVideoGenerationValue(values: VideoGenerationArgument): number {
+  const argument = values.arguments_[values.index];
+  const property = getGenerationProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
+  }
+  const option = String(argument);
+  guardNewOption(values.seen, property, option);
+  values.input[property] = getOptionValue(values.arguments_, values.index, option);
+  return values.index + 1;
 }
 
 function getGenerationProperty(argument: string | undefined): keyof Pick<

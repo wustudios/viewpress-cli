@@ -83,6 +83,13 @@ interface CreatePostInput {
   publishAt: string | undefined;
 }
 
+interface CreatePostArgument {
+  arguments_: string[];
+  index: number;
+  input: CreatePostInput;
+  seen: Set<string>;
+}
+
 export async function runSocial(arguments_: string[]): Promise<number> {
   try {
     const resource = arguments_[0];
@@ -242,22 +249,27 @@ function getCreatePostInput(arguments_: string[]): CreatePostInput {
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument, 'posts create');
-      input.json = true;
-      continue;
-    }
-    const property = getCreatePostProperty(argument);
-    if (property) {
-      guardNewOption(seen, property, String(argument), 'posts create');
-      input[property] = getOptionValue(arguments_, index, String(argument));
-      index += 1;
-      continue;
-    }
-    throw new CommandUsageError(`Unknown or repeated social posts create option: ${String(argument)}`);
+    index = readCreatePostArgument({ arguments_, index, input, seen });
   }
   return input;
+}
+
+function readCreatePostArgument(
+  values: CreatePostArgument,
+): number {
+  const argument = values.arguments_[values.index];
+  if (argument === '--json') {
+    guardNewOption(values.seen, 'json', argument, 'posts create');
+    values.input.json = true;
+    return values.index;
+  }
+  const property = getCreatePostProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown or repeated social posts create option: ${String(argument)}`);
+  }
+  guardNewOption(values.seen, property, String(argument), 'posts create');
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
 }
 
 function getCreatePostProperty(argument: string | undefined): keyof Omit<CreatePostInput, 'json'> | null {

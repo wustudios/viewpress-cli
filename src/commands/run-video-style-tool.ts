@@ -20,6 +20,94 @@ const aspectRatioSchema = z.enum(['1:1', '9:16', '16:9']);
 
 type VideoStyleTool = 'motion-transfer' | 'talking-image' | 'timelapse-scene' | 'ugc-ad';
 
+interface MotionTransferInput {
+  characterOrientation: string;
+  imageAssetId: string | undefined;
+  json: boolean;
+  keepOriginalSound: boolean;
+  motionVideoAssetId: string | undefined;
+  name: string | undefined;
+  prompt: string | undefined;
+  promptFile: string | undefined;
+  videoId: string | undefined;
+}
+
+interface MotionTransferOptions {
+  characterOrientation: 'image' | 'video';
+  imageAssetId: string;
+  json: boolean;
+  keepOriginalSound: boolean;
+  motionVideoAssetId: string;
+  name: string;
+  prompt: string | undefined;
+  videoId: string;
+}
+
+interface MotionTransferArgument {
+  arguments_: string[];
+  index: number;
+  input: MotionTransferInput;
+  seen: Set<string>;
+}
+
+interface TalkingImageInput {
+  aspectRatio: string;
+  audioAssetId: string | undefined;
+  caption: boolean;
+  imageAssetId: string | undefined;
+  json: boolean;
+  name: string | undefined;
+  resolution: string;
+  talkingStyle: string;
+  videoId: string | undefined;
+}
+
+interface TalkingImageOptions {
+  aspectRatio: z.infer<typeof aspectRatioSchema>;
+  audioAssetId: string;
+  caption: boolean;
+  imageAssetId: string;
+  json: boolean;
+  name: string;
+  resolution: '1080p' | '360p' | '480p' | '540p' | '720p';
+  talkingStyle: 'expressive' | 'stable';
+  videoId: string;
+}
+
+interface TalkingImageArgument {
+  arguments_: string[];
+  index: number;
+  input: TalkingImageInput;
+  seen: Set<string>;
+}
+
+interface UgcAdInput {
+  json: boolean;
+  referenceImageAssetIds: string[];
+  values: Map<string, string>;
+}
+
+interface UgcAdOptions {
+  aspectRatio: '16:9' | '9:16';
+  cameraNotes: string | undefined;
+  dialogue: string;
+  durationSec: 4 | 6 | 8 | 10;
+  json: boolean;
+  name: string;
+  referenceImageAssetIds: string[];
+  referenceVideoAssetId: string | undefined;
+  sceneNotes: string | undefined;
+  subjectDescription: string;
+  videoId: string;
+  voiceNotes: string | undefined;
+}
+
+interface UgcAdArgument {
+  arguments_: string[];
+  index: number;
+  input: UgcAdInput;
+}
+
 export async function runVideoStyleTool(command: VideoStyleTool, arguments_: string[]): Promise<void> {
   if (arguments_.length === 1 && (arguments_[0] === '--help' || arguments_[0] === '-h')) {
     showStyleToolHelp(command);
@@ -63,88 +151,79 @@ async function runMotionTransfer(arguments_: string[]): Promise<void> {
   writePendingAssetResponse(response, options.json);
 }
 
-async function getMotionTransferOptions(arguments_: string[]): Promise<{
-  characterOrientation: 'image' | 'video';
-  imageAssetId: string;
-  json: boolean;
-  keepOriginalSound: boolean;
-  motionVideoAssetId: string;
-  name: string;
-  prompt: string | undefined;
-  videoId: string;
-}> {
-  let characterOrientation = 'video';
-  let imageAssetId: string | undefined;
-  let json = false;
-  let keepOriginalSound = true;
-  let motionVideoAssetId: string | undefined;
-  let name: string | undefined;
-  let prompt: string | undefined;
-  let promptFile: string | undefined;
-  let videoId: string | undefined;
-  const seen = new Set<string>();
-
-  for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
-
-    if (argument === '--keep-original-sound' || argument === '--no-original-sound') {
-      guardNewOption(seen, 'sound', argument);
-      keepOriginalSound = argument === '--keep-original-sound';
-      continue;
-    }
-
-    if (argument === '--video-id') {
-      guardNewOption(seen, 'videoId', argument);
-      videoId = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--name') {
-      guardNewOption(seen, 'name', argument);
-      name = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--image-asset-id') {
-      guardNewOption(seen, 'imageAssetId', argument);
-      imageAssetId = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--motion-video-asset-id') {
-      guardNewOption(seen, 'motionVideoAssetId', argument);
-      motionVideoAssetId = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--character-orientation') {
-      guardNewOption(seen, 'characterOrientation', argument);
-      characterOrientation = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--prompt') {
-      guardPromptOption(seen, 'prompt', argument);
-      prompt = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--prompt-file') {
-      guardPromptOption(seen, 'promptFile', argument);
-      promptFile = getOptionValue(arguments_, index, argument);
-    } else {
-      throw unknownOption(argument);
-    }
-    index += 1;
-  }
-
-  const resolvedPrompt = await getPrompt(prompt, promptFile);
+async function getMotionTransferOptions(arguments_: string[]): Promise<MotionTransferOptions> {
+  const input = getMotionTransferInput(arguments_);
+  const resolvedPrompt = await getPrompt(input.prompt, input.promptFile);
   const parsedPrompt = z.string().max(2500).optional().safeParse(resolvedPrompt);
   if (!parsedPrompt.success) {
     throw new CommandUsageError('Motion transfer --prompt must be at most 2500 characters.');
   }
-  const parsedOrientation = z.enum(['image', 'video']).safeParse(characterOrientation);
+  const parsedOrientation = z.enum(['image', 'video']).safeParse(input.characterOrientation);
   if (!parsedOrientation.success) {
     throw new CommandUsageError('Motion transfer --character-orientation must be image or video.');
   }
-
   return {
     characterOrientation: parsedOrientation.data,
-    imageAssetId: getRequiredId(imageAssetId, 'Motion transfer requires --image-asset-id.'),
-    json,
-    keepOriginalSound,
-    motionVideoAssetId: getRequiredId(motionVideoAssetId, 'Motion transfer requires --motion-video-asset-id.'),
-    name: getName(name, 'Motion transfer'),
+    imageAssetId: getRequiredId(input.imageAssetId, 'Motion transfer requires --image-asset-id.'),
+    json: input.json,
+    keepOriginalSound: input.keepOriginalSound,
+    motionVideoAssetId: getRequiredId(input.motionVideoAssetId, 'Motion transfer requires --motion-video-asset-id.'),
+    name: getName(input.name, 'Motion transfer'),
     prompt: parsedPrompt.data,
-    videoId: getRequiredId(videoId, 'Motion transfer requires --video-id.'),
+    videoId: getRequiredId(input.videoId, 'Motion transfer requires --video-id.'),
   };
+}
+
+function getMotionTransferInput(arguments_: string[]): MotionTransferInput {
+  const input: MotionTransferInput = {
+    characterOrientation: 'video', imageAssetId: undefined, json: false, keepOriginalSound: true,
+    motionVideoAssetId: undefined, name: undefined, prompt: undefined, promptFile: undefined, videoId: undefined,
+  };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    index = readMotionTransferArgument({ arguments_, index, input, seen });
+  }
+  return input;
+}
+
+function readMotionTransferArgument(values: MotionTransferArgument): number {
+  const argument = values.arguments_[values.index];
+  if (argument === '--json' && !values.input.json) {
+    values.input.json = true;
+    return values.index;
+  }
+  if (argument === '--keep-original-sound' || argument === '--no-original-sound') {
+    guardNewOption(values.seen, 'sound', argument);
+    values.input.keepOriginalSound = argument === '--keep-original-sound';
+    return values.index;
+  }
+  return readMotionTransferValue(values);
+}
+
+function readMotionTransferValue(values: MotionTransferArgument): number {
+  const argument = values.arguments_[values.index];
+  const property = getMotionTransferProperty(argument);
+  if (!property) {
+    throw unknownOption(argument);
+  }
+  if (property === 'prompt' || property === 'promptFile') {
+    guardPromptOption(values.seen, property, String(argument));
+  } else {
+    guardNewOption(values.seen, property, String(argument));
+  }
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
+}
+
+function getMotionTransferProperty(
+  argument: string | undefined,
+): keyof Omit<MotionTransferInput, 'json' | 'keepOriginalSound'> | null {
+  const properties = {
+    '--character-orientation': 'characterOrientation', '--image-asset-id': 'imageAssetId',
+    '--motion-video-asset-id': 'motionVideoAssetId', '--name': 'name', '--prompt': 'prompt',
+    '--prompt-file': 'promptFile', '--video-id': 'videoId',
+  } as const;
+  return argument && argument in properties ? properties[argument as keyof typeof properties] : null;
 }
 
 async function runTalkingImage(arguments_: string[]): Promise<void> {
@@ -167,90 +246,91 @@ async function runTalkingImage(arguments_: string[]): Promise<void> {
   writePendingAssetResponse(response, options.json);
 }
 
-function getTalkingImageOptions(arguments_: string[]): {
-  aspectRatio: z.infer<typeof aspectRatioSchema>;
-  audioAssetId: string;
-  caption: boolean;
-  imageAssetId: string;
-  json: boolean;
-  name: string;
-  resolution: '1080p' | '360p' | '480p' | '540p' | '720p';
-  talkingStyle: 'expressive' | 'stable';
-  videoId: string;
-} {
-  let aspectRatio = '9:16';
-  let audioAssetId: string | undefined;
-  let caption = false;
-  let imageAssetId: string | undefined;
-  let json = false;
-  let name: string | undefined;
-  let resolution = '720p';
-  let talkingStyle = 'stable';
-  let videoId: string | undefined;
-  const seen = new Set<string>();
+function getTalkingImageOptions(arguments_: string[]): TalkingImageOptions {
+  const input = getTalkingImageInput(arguments_);
+  return {
+    aspectRatio: getTalkingImageAspectRatio(input.aspectRatio),
+    audioAssetId: getRequiredId(input.audioAssetId, 'Talking image requires --audio-asset-id.'),
+    caption: input.caption,
+    imageAssetId: getRequiredId(input.imageAssetId, 'Talking image requires --image-asset-id.'),
+    json: input.json,
+    name: getName(input.name, 'Talking image'),
+    resolution: getTalkingImageResolution(input.resolution),
+    talkingStyle: getTalkingImageStyle(input.talkingStyle),
+    videoId: getRequiredId(input.videoId, 'Talking image requires --video-id.'),
+  };
+}
 
-  for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
-    if (argument === '--caption' || argument === '--no-caption') {
-      guardNewOption(seen, 'caption', argument);
-      caption = argument === '--caption';
-      continue;
-    }
-    if (argument === '--video-id') {
-      guardNewOption(seen, 'videoId', argument);
-      videoId = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--name') {
-      guardNewOption(seen, 'name', argument);
-      name = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--image-asset-id') {
-      guardNewOption(seen, 'imageAssetId', argument);
-      imageAssetId = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--audio-asset-id') {
-      guardNewOption(seen, 'audioAssetId', argument);
-      audioAssetId = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--aspect-ratio') {
-      guardNewOption(seen, 'aspectRatio', argument);
-      aspectRatio = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--resolution') {
-      guardNewOption(seen, 'resolution', argument);
-      resolution = getOptionValue(arguments_, index, argument);
-    } else if (argument === '--talking-style') {
-      guardNewOption(seen, 'talkingStyle', argument);
-      talkingStyle = getOptionValue(arguments_, index, argument);
-    } else {
-      throw unknownOption(argument);
-    }
-    index += 1;
-  }
-
-  const parsedAspectRatio = aspectRatioSchema.safeParse(aspectRatio);
-  if (!parsedAspectRatio.success) {
+function getTalkingImageAspectRatio(value: string): z.infer<typeof aspectRatioSchema> {
+  const aspectRatio = aspectRatioSchema.safeParse(value);
+  if (!aspectRatio.success) {
     throw new CommandUsageError('Talking image --aspect-ratio must be 1:1, 9:16, or 16:9.');
   }
-  const parsedResolution = z.enum(['360p', '480p', '540p', '720p', '1080p']).safeParse(resolution);
-  if (!parsedResolution.success) {
+  return aspectRatio.data;
+}
+
+function getTalkingImageResolution(value: string): '1080p' | '360p' | '480p' | '540p' | '720p' {
+  const resolution = z.enum(['360p', '480p', '540p', '720p', '1080p']).safeParse(value);
+  if (!resolution.success) {
     throw new CommandUsageError('Talking image --resolution must be 360p, 480p, 540p, 720p, or 1080p.');
   }
-  const parsedTalkingStyle = z.enum(['stable', 'expressive']).safeParse(talkingStyle);
-  if (!parsedTalkingStyle.success) {
+  return resolution.data;
+}
+
+function getTalkingImageStyle(value: string): 'expressive' | 'stable' {
+  const talkingStyle = z.enum(['stable', 'expressive']).safeParse(value);
+  if (!talkingStyle.success) {
     throw new CommandUsageError('Talking image --talking-style must be stable or expressive.');
   }
+  return talkingStyle.data;
+}
 
-  return {
-    aspectRatio: parsedAspectRatio.data,
-    audioAssetId: getRequiredId(audioAssetId, 'Talking image requires --audio-asset-id.'),
-    caption,
-    imageAssetId: getRequiredId(imageAssetId, 'Talking image requires --image-asset-id.'),
-    json,
-    name: getName(name, 'Talking image'),
-    resolution: parsedResolution.data,
-    talkingStyle: parsedTalkingStyle.data,
-    videoId: getRequiredId(videoId, 'Talking image requires --video-id.'),
+function getTalkingImageInput(arguments_: string[]): TalkingImageInput {
+  const input: TalkingImageInput = {
+    aspectRatio: '9:16', audioAssetId: undefined, caption: false, imageAssetId: undefined,
+    json: false, name: undefined, resolution: '720p', talkingStyle: 'stable', videoId: undefined,
   };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    index = readTalkingImageArgument({ arguments_, index, input, seen });
+  }
+  return input;
+}
+
+function readTalkingImageArgument(values: TalkingImageArgument): number {
+  const argument = values.arguments_[values.index];
+  if (argument === '--json' && !values.input.json) {
+    values.input.json = true;
+    return values.index;
+  }
+  if (argument === '--caption' || argument === '--no-caption') {
+    guardNewOption(values.seen, 'caption', argument);
+    values.input.caption = argument === '--caption';
+    return values.index;
+  }
+  return readTalkingImageValue(values);
+}
+
+function readTalkingImageValue(values: TalkingImageArgument): number {
+  const argument = values.arguments_[values.index];
+  const property = getTalkingImageProperty(argument);
+  if (!property) {
+    throw unknownOption(argument);
+  }
+  guardNewOption(values.seen, property, String(argument));
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
+}
+
+function getTalkingImageProperty(
+  argument: string | undefined,
+): keyof Omit<TalkingImageInput, 'caption' | 'json'> | null {
+  const properties = {
+    '--aspect-ratio': 'aspectRatio', '--audio-asset-id': 'audioAssetId',
+    '--image-asset-id': 'imageAssetId', '--name': 'name', '--resolution': 'resolution',
+    '--talking-style': 'talkingStyle', '--video-id': 'videoId',
+  } as const;
+  return argument && argument in properties ? properties[argument as keyof typeof properties] : null;
 }
 
 async function runUgcAd(arguments_: string[]): Promise<void> {
@@ -276,79 +356,94 @@ async function runUgcAd(arguments_: string[]): Promise<void> {
   writePendingAssetResponse(response, options.json);
 }
 
-function getUgcAdOptions(arguments_: string[]): {
-  aspectRatio: '16:9' | '9:16';
-  cameraNotes: string | undefined;
-  dialogue: string;
-  durationSec: 4 | 6 | 8 | 10;
-  json: boolean;
-  name: string;
-  referenceImageAssetIds: string[];
-  referenceVideoAssetId: string | undefined;
-  sceneNotes: string | undefined;
-  subjectDescription: string;
-  videoId: string;
-  voiceNotes: string | undefined;
-} {
-  const values = new Map<string, string>();
-  const referenceImageAssetIds: string[] = [];
-  let json = false;
+function getUgcAdOptions(arguments_: string[]): UgcAdOptions {
+  const input = getUgcAdInput(arguments_);
+  const subjectDescription = getUgcSubjectDescription(input.values);
+  const dialogue = getUgcDialogue(input.values);
+  const durationSec = getUgcDurationSec(input.values);
+  const aspectRatio = getUgcAspectRatio(input.values);
+  guardUgcReferenceCount(input);
+  return {
+    aspectRatio,
+    cameraNotes: input.values.get('--camera-notes'),
+    dialogue,
+    durationSec,
+    json: input.json,
+    name: getName(input.values.get('--name'), 'UGC ad'),
+    referenceImageAssetIds: input.referenceImageAssetIds,
+    referenceVideoAssetId: input.values.get('--reference-video-asset-id'),
+    sceneNotes: input.values.get('--scene-notes'),
+    subjectDescription,
+    videoId: getRequiredId(input.values.get('--video-id'), 'UGC ad requires --video-id.'),
+    voiceNotes: input.values.get('--voice-notes'),
+  };
+}
 
+function getUgcAdInput(arguments_: string[]): UgcAdInput {
+  const input: UgcAdInput = { json: false, referenceImageAssetIds: [], values: new Map() };
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
-    if (argument === '--reference-image-asset-id') {
-      referenceImageAssetIds.push(getOptionValue(arguments_, index, argument));
-      index += 1;
-      continue;
-    }
-    if (!ugcAdOptionNames.has(String(argument)) || values.has(String(argument))) {
-      throw unknownOption(argument);
-    }
-    values.set(String(argument), getOptionValue(arguments_, index, String(argument)));
-    index += 1;
+    index = readUgcAdArgument({ arguments_, index, input });
   }
+  return input;
+}
 
+function readUgcAdArgument(values: UgcAdArgument): number {
+  const argument = values.arguments_[values.index];
+  if (argument === '--json' && !values.input.json) {
+    values.input.json = true;
+    return values.index;
+  }
+  if (argument === '--reference-image-asset-id') {
+    values.input.referenceImageAssetIds.push(getOptionValue(values.arguments_, values.index, argument));
+    return values.index + 1;
+  }
+  const option = String(argument);
+  if (!ugcAdOptionNames.has(option) || values.input.values.has(option)) {
+    throw unknownOption(argument);
+  }
+  values.input.values.set(option, getOptionValue(values.arguments_, values.index, option));
+  return values.index + 1;
+}
+
+function getUgcSubjectDescription(values: Map<string, string>): string {
   const subjectDescription = z.string().min(10).safeParse(values.get('--subject-description'));
   if (!subjectDescription.success) {
     throw new CommandUsageError('UGC ad requires --subject-description with at least 10 characters.');
   }
+  return subjectDescription.data;
+}
+
+function getUgcDialogue(values: Map<string, string>): string {
   const dialogue = z.string().min(2).max(400).safeParse(values.get('--dialogue'));
   if (!dialogue.success) {
     throw new CommandUsageError('UGC ad requires --dialogue with 2 to 400 characters.');
   }
+  return dialogue.data;
+}
+
+function getUgcDurationSec(values: Map<string, string>): 4 | 6 | 8 | 10 {
   const durationSec = z.union([z.literal(4), z.literal(6), z.literal(8), z.literal(10)]).safeParse(
     Number(values.get('--duration-sec')),
   );
   if (!durationSec.success) {
     throw new CommandUsageError('UGC ad --duration-sec must be 4, 6, 8, or 10.');
   }
+  return durationSec.data;
+}
+
+function getUgcAspectRatio(values: Map<string, string>): '16:9' | '9:16' {
   const aspectRatio = z.enum(['9:16', '16:9']).safeParse(values.get('--aspect-ratio') ?? '9:16');
   if (!aspectRatio.success) {
     throw new CommandUsageError('UGC ad --aspect-ratio must be 9:16 or 16:9.');
   }
-  const referenceCap = values.has('--reference-video-asset-id') ? 5 : 7;
-  if (referenceImageAssetIds.length < 1 || referenceImageAssetIds.length > referenceCap) {
+  return aspectRatio.data;
+}
+
+function guardUgcReferenceCount(input: UgcAdInput): void {
+  const referenceCap = input.values.has('--reference-video-asset-id') ? 5 : 7;
+  if (input.referenceImageAssetIds.length < 1 || input.referenceImageAssetIds.length > referenceCap) {
     throw new CommandUsageError(`UGC ad requires 1 to ${String(referenceCap)} --reference-image-asset-id values.`);
   }
-
-  return {
-    aspectRatio: aspectRatio.data,
-    cameraNotes: values.get('--camera-notes'),
-    dialogue: dialogue.data,
-    durationSec: durationSec.data,
-    json,
-    name: getName(values.get('--name'), 'UGC ad'),
-    referenceImageAssetIds,
-    referenceVideoAssetId: values.get('--reference-video-asset-id'),
-    sceneNotes: values.get('--scene-notes'),
-    subjectDescription: subjectDescription.data,
-    videoId: getRequiredId(values.get('--video-id'), 'UGC ad requires --video-id.'),
-    voiceNotes: values.get('--voice-notes'),
-  };
 }
 
 const ugcAdOptionNames = new Set([

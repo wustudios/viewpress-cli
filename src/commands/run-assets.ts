@@ -46,6 +46,13 @@ interface CaptionInput {
   wordsAtATime: string;
 }
 
+interface CaptionArgument {
+  arguments_: string[];
+  index: number;
+  input: CaptionInput;
+  seen: Set<string>;
+}
+
 interface UpscaleInput {
   height?: string;
   json: boolean;
@@ -374,29 +381,39 @@ function getCaptionInput(arguments_: string[]): CaptionInput {
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      input.json = true;
-      continue;
-    }
-    const booleanProperty = getCaptionBooleanProperty(argument);
-    if (booleanProperty) {
-      guardNewOption(seen, booleanProperty, String(argument));
-      input[booleanProperty] = !argument?.startsWith('--no-');
-      continue;
-    }
-    const property = getCaptionValueProperty(argument);
-    if (property) {
-      guardNewOption(seen, property, String(argument));
-      input[property] = getOptionValue(arguments_, index, String(argument));
-      index += 1;
-      continue;
-    }
-    throw new CommandUsageError(`Unknown or repeated assets add-captions option: ${String(argument)}`);
+    index = readCaptionArgument({ arguments_, index, input, seen });
   }
 
   return input;
+}
+
+function readCaptionArgument(
+  values: CaptionArgument,
+): number {
+  const argument = values.arguments_[values.index];
+  if (argument === '--json') {
+    guardNewOption(values.seen, 'json', argument);
+    values.input.json = true;
+    return values.index;
+  }
+  const booleanProperty = getCaptionBooleanProperty(argument);
+  if (booleanProperty) {
+    guardNewOption(values.seen, booleanProperty, String(argument));
+    values.input[booleanProperty] = !argument?.startsWith('--no-');
+    return values.index;
+  }
+  return readCaptionValue(values);
+}
+
+function readCaptionValue(values: CaptionArgument): number {
+  const argument = values.arguments_[values.index];
+  const property = getCaptionValueProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown or repeated assets add-captions option: ${String(argument)}`);
+  }
+  guardNewOption(values.seen, property, String(argument));
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
 }
 
 function getCaptionBooleanProperty(argument: string | undefined): 'animated' | 'karaoke' | null {
