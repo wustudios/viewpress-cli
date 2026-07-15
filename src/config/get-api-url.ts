@@ -16,10 +16,14 @@ export function getApiUrl(value: string): string {
     });
   }
 
-  if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+  const usesHttps = url.protocol === 'https:';
+  const usesLoopbackHttp = url.protocol === 'http:'
+    && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
+
+  if (!usesHttps && !usesLoopbackHttp) {
     throw new CliError({
       exitCode: 2,
-      message: 'The Viewpress API URL must use HTTPS unless it is localhost.',
+      message: 'The Viewpress API URL must use HTTPS, except HTTP is allowed for localhost and 127.0.0.1.',
       type: 'config_error',
     });
   }

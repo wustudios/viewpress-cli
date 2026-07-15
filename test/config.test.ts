@@ -35,6 +35,32 @@ test('sets, reports, and removes stored credentials through the CLI', async () =
     expect(await readFile(join(configDirectory, 'config.json'), 'utf8')).toContain('vp_test_key');
     await expectPrivateModes(configDirectory);
 
+    const loopback = await runCli(configDirectory, [
+      '--api-url', 'http://localhost:3000/api/v1', '--json', 'auth', 'status',
+    ]);
+    const remoteHttp = await runCli(configDirectory, [
+      '--api-url', 'http://viewpress.ai/api/v1', '--json', 'auth', 'status',
+    ]);
+    const loopbackFtp = await runCli(configDirectory, [
+      '--api-url', 'ftp://localhost/api/v1', '--json', 'auth', 'status',
+    ]);
+
+    expect(loopback).toEqual({
+      exitCode: 0,
+      stderr: '',
+      stdout: '{"ok":true,"data":{"apiUrl":"http://localhost:3000/api/v1","authenticated":true,"source":"file"}}\n',
+    });
+    expect(remoteHttp).toEqual({
+      exitCode: 2,
+      stderr: '{"ok":false,"error":{"type":"usage_error","message":"The Viewpress API URL must use HTTPS, except HTTP is allowed for localhost and 127.0.0.1."}}\n',
+      stdout: '',
+    });
+    expect(loopbackFtp).toEqual({
+      exitCode: 2,
+      stderr: '{"ok":false,"error":{"type":"usage_error","message":"The Viewpress API URL must use HTTPS, except HTTP is allowed for localhost and 127.0.0.1."}}\n',
+      stdout: '',
+    });
+
     const logout = await runCli(configDirectory, ['--json', 'auth', 'logout']);
 
     expect(logout).toEqual({
