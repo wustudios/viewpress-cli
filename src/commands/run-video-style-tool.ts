@@ -108,6 +108,28 @@ interface UgcAdArgument {
   input: UgcAdInput;
 }
 
+interface TimelapseInput {
+  json: boolean;
+  values: Map<string, string>;
+}
+
+interface TimelapseOptions {
+  aspectRatio: '16:9' | '9:16';
+  json: boolean;
+  name: string;
+  settingNotes: string | undefined;
+  startImageAssetId: string;
+  stepDescription: string;
+  videoId: string;
+  workerDescription: string | undefined;
+}
+
+interface TimelapseArgument {
+  arguments_: string[];
+  index: number;
+  input: TimelapseInput;
+}
+
 export async function runVideoStyleTool(command: VideoStyleTool, arguments_: string[]): Promise<void> {
   if (arguments_.length === 1 && (arguments_[0] === '--help' || arguments_[0] === '-h')) {
     showStyleToolHelp(command);
@@ -483,54 +505,59 @@ async function runTimelapseScene(arguments_: string[]): Promise<void> {
   process.stdout.write(`Started video asset ${response.assetId} (${response.status}).\nEnd frame asset: ${response.endFrameAssetId}\n`);
 }
 
-function getTimelapseOptions(arguments_: string[]): {
-  aspectRatio: '16:9' | '9:16';
-  json: boolean;
-  name: string;
-  settingNotes: string | undefined;
-  startImageAssetId: string;
-  stepDescription: string;
-  videoId: string;
-  workerDescription: string | undefined;
-} {
-  const values = new Map<string, string>();
-  let json = false;
+function getTimelapseOptions(arguments_: string[]): TimelapseOptions {
+  const input = getTimelapseInput(arguments_);
+  return {
+    aspectRatio: getTimelapseAspectRatio(input.values),
+    json: input.json,
+    name: getName(input.values.get('--name'), 'Timelapse scene'),
+    settingNotes: input.values.get('--setting-notes'),
+    startImageAssetId: getRequiredId(
+      input.values.get('--start-image-asset-id'),
+      'Timelapse scene requires --start-image-asset-id.',
+    ),
+    stepDescription: getTimelapseStepDescription(input.values),
+    videoId: getRequiredId(input.values.get('--video-id'), 'Timelapse scene requires --video-id.'),
+    workerDescription: input.values.get('--worker-description'),
+  };
+}
 
+function getTimelapseInput(arguments_: string[]): TimelapseInput {
+  const input: TimelapseInput = { json: false, values: new Map<string, string>() };
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
-    if (!timelapseOptionNames.has(String(argument)) || values.has(String(argument))) {
-      throw unknownOption(argument);
-    }
-    values.set(String(argument), getOptionValue(arguments_, index, String(argument)));
-    index += 1;
+    index = readTimelapseArgument({ arguments_, index, input });
   }
+  return input;
+}
 
+function readTimelapseArgument(values: TimelapseArgument): number {
+  const { arguments_, index, input } = values;
+  const argument = arguments_[index];
+  if (argument === '--json' && !input.json) {
+    input.json = true;
+    return index;
+  }
+  if (!timelapseOptionNames.has(String(argument)) || input.values.has(String(argument))) {
+    throw unknownOption(argument);
+  }
+  input.values.set(String(argument), getOptionValue(arguments_, index, String(argument)));
+  return index + 1;
+}
+
+function getTimelapseStepDescription(values: Map<string, string>): string {
   const stepDescription = z.string().min(10).safeParse(values.get('--step-description'));
   if (!stepDescription.success) {
     throw new CommandUsageError('Timelapse scene requires --step-description with at least 10 characters.');
   }
+  return stepDescription.data;
+}
+
+function getTimelapseAspectRatio(values: Map<string, string>): '16:9' | '9:16' {
   const aspectRatio = z.enum(['9:16', '16:9']).safeParse(values.get('--aspect-ratio') ?? '9:16');
   if (!aspectRatio.success) {
     throw new CommandUsageError('Timelapse scene --aspect-ratio must be 9:16 or 16:9.');
   }
-
-  return {
-    aspectRatio: aspectRatio.data,
-    json,
-    name: getName(values.get('--name'), 'Timelapse scene'),
-    settingNotes: values.get('--setting-notes'),
-    startImageAssetId: getRequiredId(
-      values.get('--start-image-asset-id'),
-      'Timelapse scene requires --start-image-asset-id.',
-    ),
-    stepDescription: stepDescription.data,
-    videoId: getRequiredId(values.get('--video-id'), 'Timelapse scene requires --video-id.'),
-    workerDescription: values.get('--worker-description'),
-  };
+  return aspectRatio.data;
 }
 
 const timelapseOptionNames = new Set([

@@ -60,6 +60,54 @@ interface UpscaleInput {
   width?: string;
 }
 
+interface AssetListInput {
+  json: boolean;
+  kind: string | undefined;
+  limit: string;
+  videoId: string | undefined;
+}
+
+interface AssetListOptions {
+  json: boolean;
+  kind?: z.infer<typeof assetKindSchema>;
+  limit: number;
+  videoId: string;
+}
+
+interface AssetListArgument {
+  arguments_: string[];
+  index: number;
+  input: AssetListInput;
+  seen: Set<string>;
+}
+
+interface RemoveBackgroundInput {
+  json: boolean;
+  outputCodec: string;
+  refineForegroundEdges: boolean;
+  subjectIsPerson: boolean;
+}
+
+interface RemoveBackgroundArgument {
+  arguments_: string[];
+  index: number;
+  input: RemoveBackgroundInput;
+  seen: Set<string>;
+}
+
+interface EnhanceAudioInput {
+  json: boolean;
+  normalize: boolean;
+  removeNoise: boolean;
+  studioSound: boolean;
+}
+
+interface EnhanceAudioArgument {
+  argument: string;
+  input: EnhanceAudioInput;
+  seen: Set<string>;
+}
+
 export async function runAssets(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -143,56 +191,68 @@ async function listAssets(arguments_: string[]): Promise<void> {
   }
 }
 
-function getListOptions(arguments_: string[]): {
-  json: boolean;
-  kind?: z.infer<typeof assetKindSchema>;
-  limit: number;
-  videoId: string;
-} {
-  let json = false;
-  let kind: string | undefined;
-  let limit = '50';
-  let videoId: string | undefined;
-  const seen = new Set<string>();
-
-  for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      json = true;
-      continue;
-    }
-    if (argument === '--video-id' || argument === '--kind' || argument === '--limit') {
-      guardNewOption(seen, argument, argument);
-      const value = getOptionValue(arguments_, index, argument);
-      index += 1;
-      if (argument === '--video-id') {
-        videoId = value;
-      }
-      if (argument === '--kind') {
-        kind = value;
-      }
-      if (argument === '--limit') {
-        limit = value;
-      }
-      continue;
-    }
-    throw new CommandUsageError(`Unknown or repeated assets list option: ${String(argument)}`);
-  }
-
-  if (!videoId) {
+function getListOptions(arguments_: string[]): AssetListOptions {
+  const input = getAssetListInput(arguments_);
+  if (!input.videoId) {
     throw new CommandUsageError('Assets list requires --video-id.');
   }
-  const parsedKind = kind === undefined ? undefined : assetKindSchema.safeParse(kind);
-  if (parsedKind && !parsedKind.success) {
+  const kind = getAssetKind(input.kind);
+  return {
+    json: input.json,
+    ...(kind === undefined ? {} : { kind }),
+    limit: getInteger(input.limit, '--limit', 1, 200),
+    videoId: input.videoId,
+  };
+}
+
+function getAssetListInput(arguments_: string[]): AssetListInput {
+  const input: AssetListInput = { json: false, kind: undefined, limit: '50', videoId: undefined };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    index = readAssetListArgument({ arguments_, index, input, seen });
+  }
+  return input;
+}
+
+function readAssetListArgument(values: AssetListArgument): number {
+  const { arguments_, index, input, seen } = values;
+  const argument = arguments_[index];
+  if (argument === '--json') {
+    guardNewOption(seen, 'json', argument);
+    input.json = true;
+    return index;
+  }
+  const property = getAssetListProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown or repeated assets list option: ${String(argument)}`);
+  }
+  guardNewOption(seen, property, argument);
+  input[property] = getOptionValue(arguments_, index, String(argument));
+  return index + 1;
+}
+
+function getAssetListProperty(argument: string | undefined): 'kind' | 'limit' | 'videoId' | null {
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  if (argument === '--kind') {
+    return 'kind';
+  }
+  if (argument === '--limit') {
+    return 'limit';
+  }
+  return null;
+}
+
+function getAssetKind(kind: string | undefined): z.infer<typeof assetKindSchema> | undefined {
+  if (kind === undefined) {
+    return undefined;
+  }
+  const parsedKind = assetKindSchema.safeParse(kind);
+  if (!parsedKind.success) {
     throw new CommandUsageError('Assets --kind must be image, video, audio, sfx, music, or render.');
   }
-  return {
-    json,
-    ...(parsedKind?.data === undefined ? {} : { kind: parsedKind.data }),
-    limit: getInteger(limit, '--limit', 1, 200),
-    videoId,
-  };
+  return parsedKind.data;
 }
 
 async function getAssetCommand(arguments_: string[]): Promise<void> {
@@ -551,43 +611,44 @@ function getUpscaleProperty(argument: string | undefined): keyof Pick<
 
 async function removeBackground(arguments_: string[]): Promise<void> {
   const assetId = getAssetId(arguments_, 'remove-background');
-  let json = false;
-  let outputCodec = 'vp9';
-  let refineForegroundEdges = true;
-  let subjectIsPerson = true;
-  const seen = new Set<string>();
+  const input = getRemoveBackgroundInput(arguments_.slice(1));
+  const codec = parseEnum(outputCodecSchema, input.outputCodec, '--output-codec');
+  await runTransform(assetId, 'remove-background', {
+    subject_is_person: input.subjectIsPerson,
+    refine_foreground_edges: input.refineForegroundEdges,
+    output_codec: codec,
+  }, input.json);
+}
 
-  for (let index = 1; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      json = true;
-      continue;
-    }
-    if (argument === '--output-codec') {
-      guardNewOption(seen, 'outputCodec', argument);
-      outputCodec = getOptionValue(arguments_, index, argument);
-      index += 1;
-      continue;
-    }
-    const property = getRemoveBackgroundBooleanProperty(argument);
-    if (property) {
-      guardNewOption(seen, property, String(argument));
-      const value = !argument?.startsWith('--no-');
-      if (property === 'subjectIsPerson') {
-        subjectIsPerson = value;
-      } else {
-        refineForegroundEdges = value;
-      }
-      continue;
-    }
+function getRemoveBackgroundInput(arguments_: string[]): RemoveBackgroundInput {
+  const input = { json: false, outputCodec: 'vp9', refineForegroundEdges: true, subjectIsPerson: true };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    index = readRemoveBackgroundArgument({ arguments_, index, input, seen });
+  }
+  return input;
+}
+
+function readRemoveBackgroundArgument(values: RemoveBackgroundArgument): number {
+  const { arguments_, index, input, seen } = values;
+  const argument = arguments_[index];
+  if (argument === '--json') {
+    guardNewOption(seen, 'json', argument);
+    input.json = true;
+    return index;
+  }
+  if (argument === '--output-codec') {
+    guardNewOption(seen, 'outputCodec', argument);
+    input.outputCodec = getOptionValue(arguments_, index, argument);
+    return index + 1;
+  }
+  const property = getRemoveBackgroundBooleanProperty(argument);
+  if (!property) {
     throw new CommandUsageError(`Unknown or repeated assets remove-background option: ${String(argument)}`);
   }
-
-  const codec = parseEnum(outputCodecSchema, outputCodec, '--output-codec');
-  await runTransform(assetId, 'remove-background', {
-    subject_is_person: subjectIsPerson, refine_foreground_edges: refineForegroundEdges, output_codec: codec,
-  }, json);
+  guardNewOption(seen, property, argument);
+  input[property] = !argument?.startsWith('--no-');
+  return index;
 }
 
 function getRemoveBackgroundBooleanProperty(
@@ -604,38 +665,36 @@ function getRemoveBackgroundBooleanProperty(
 
 async function enhanceAudio(arguments_: string[]): Promise<void> {
   const assetId = getAssetId(arguments_, 'enhance-audio');
-  let json = false;
-  let normalize = true;
-  let removeNoise = true;
-  let studioSound = true;
-  const seen = new Set<string>();
-
-  for (const argument of arguments_.slice(1)) {
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      json = true;
-      continue;
-    }
-    const property = getEnhanceAudioBooleanProperty(argument);
-    if (!property) {
-      throw new CommandUsageError(`Unknown or repeated assets enhance-audio option: ${argument}`);
-    }
-    guardNewOption(seen, property, argument);
-    const value = !argument.startsWith('--no-');
-    if (property === 'removeNoise') {
-      removeNoise = value;
-    }
-    if (property === 'normalize') {
-      normalize = value;
-    }
-    if (property === 'studioSound') {
-      studioSound = value;
-    }
-  }
-
+  const input = getEnhanceAudioInput(arguments_.slice(1));
   await runTransform(assetId, 'enhance-audio', {
-    remove_noise: removeNoise, normalize, studio_sound: studioSound,
-  }, json);
+    remove_noise: input.removeNoise,
+    normalize: input.normalize,
+    studio_sound: input.studioSound,
+  }, input.json);
+}
+
+function getEnhanceAudioInput(arguments_: string[]): EnhanceAudioInput {
+  const input = { json: false, normalize: true, removeNoise: true, studioSound: true };
+  const seen = new Set<string>();
+  for (const argument of arguments_) {
+    readEnhanceAudioArgument({ argument, input, seen });
+  }
+  return input;
+}
+
+function readEnhanceAudioArgument(values: EnhanceAudioArgument): void {
+  const { argument, input, seen } = values;
+  if (argument === '--json') {
+    guardNewOption(seen, 'json', argument);
+    input.json = true;
+    return;
+  }
+  const property = getEnhanceAudioBooleanProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown or repeated assets enhance-audio option: ${argument}`);
+  }
+  guardNewOption(seen, property, argument);
+  input[property] = !argument.startsWith('--no-');
 }
 
 function getEnhanceAudioBooleanProperty(argument: string): 'normalize' | 'removeNoise' | 'studioSound' | null {
