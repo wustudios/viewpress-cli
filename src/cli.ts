@@ -5,7 +5,9 @@ import { runAuth } from './commands/run-auth.ts';
 import { runAudio } from './commands/run-audio.ts';
 import { runCredits } from './commands/run-credits.ts';
 import { runImages } from './commands/run-images.ts';
+import { runMedia } from './commands/run-media.ts';
 import { runProjects } from './commands/run-projects.ts';
+import { runRenders } from './commands/run-renders.ts';
 import { runStyles } from './commands/run-styles.ts';
 import { runVideos } from './commands/run-videos.ts';
 import { runVoices } from './commands/run-voices.ts';
@@ -44,6 +46,14 @@ async function runCli(cliArguments: string[]): Promise<number> {
 
   if (command === 'images') {
     return runImages(cliArguments.slice(1));
+  }
+
+  if (command === 'renders') {
+    return runRenders(cliArguments.slice(1));
+  }
+
+  if (command === 'media') {
+    return runMedia(cliArguments.slice(1));
   }
 
   if (command === 'speech' || command === 'music' || command === 'sfx') {
