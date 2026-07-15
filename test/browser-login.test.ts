@@ -42,6 +42,25 @@ describe('loginWithBrowser', () => {
     expect(requests[1]?.headers.get('Authorization')).toBe('Bearer secret-poll-token');
     expect(requests[1]?.url).not.toContain('secret-poll-token');
     expect(requests[2]?.headers.get('Authorization')).toBe('Bearer secret-poll-token');
+
+    const untrustedFetch = getMockFetch(
+      [
+        Response.json({
+          expires_at: '2099-01-01T00:00:00.000Z',
+          interval_sec: 1,
+          poll_token: 'secret-poll-token',
+          session_id: 'session-id',
+          verification_url: 'https://example.com/cli/verify?code=ABCD',
+        }),
+      ],
+      [],
+    );
+    expect(
+      loginWithBrowser({
+        apiUrl: 'https://viewpress.ai/api/v1',
+        fetchRequest: untrustedFetch,
+      }),
+    ).rejects.toThrow('The browser login URL must use the configured Viewpress server.');
   });
 });
 

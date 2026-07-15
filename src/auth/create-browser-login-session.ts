@@ -21,10 +21,10 @@ export async function createBrowserLoginSession(
     throw new Error(`Could not start browser login. The server returned ${String(response.status)}.`);
   }
 
-  return parseSession(await response.json());
+  return parseSession(await response.json(), apiUrl);
 }
 
-function parseSession(value: unknown): BrowserLoginSession {
+function parseSession(value: unknown, apiUrl: string): BrowserLoginSession {
   if (!isRecord(value)) {
     throw new Error('The browser login response is invalid.');
   }
@@ -42,11 +42,21 @@ function parseSession(value: unknown): BrowserLoginSession {
 
   const verificationUrlObject = new URL(verificationUrl);
 
+  guardVerificationUrl(verificationUrlObject, new URL(apiUrl));
   if (sessionId.includes(pollToken) || getDecodedUrl(verificationUrlObject).includes(pollToken)) {
     throw new Error('The browser login URL must not contain the polling token.');
   }
 
   return { expiresAtMs, intervalSec, pollToken, sessionId, verificationUrl };
+}
+
+function guardVerificationUrl(verificationUrl: URL, apiUrl: URL): void {
+  const isLoopback = apiUrl.hostname === 'localhost' || apiUrl.hostname === '127.0.0.1';
+  const isAllowedProtocol = verificationUrl.protocol === 'https:' || (isLoopback && apiUrl.protocol === 'http:');
+
+  if (!isAllowedProtocol || verificationUrl.origin !== apiUrl.origin) {
+    throw new Error('The browser login URL must use the configured Viewpress server.');
+  }
 }
 
 function getDecodedUrl(url: URL): string {
