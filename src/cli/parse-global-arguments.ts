@@ -9,18 +9,33 @@ interface ParsedGlobalArguments {
     nonInteractive: boolean;
     timeoutSec: number;
   };
+  version: boolean;
 }
 
 export function parseGlobalArguments(arguments_: string[]): ParsedGlobalArguments {
   const remainingArguments: string[] = [];
   const seen = new Set<string>();
   let apiUrl: string | undefined;
+  let help = false;
   let json = false;
   let nonInteractive = false;
   let timeout: string | undefined;
+  let version = false;
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
+
+    if (argument === '--help' || argument === '-h') {
+      guardNewGlobal(seen, '--help');
+      help = true;
+      continue;
+    }
+
+    if (argument === '--version' || argument === '-V') {
+      guardNewGlobal(seen, '--version');
+      version = true;
+      continue;
+    }
 
     if (argument === '--json' || argument === '--non-interactive') {
       guardNewGlobal(seen, argument);
@@ -46,19 +61,28 @@ export function parseGlobalArguments(arguments_: string[]): ParsedGlobalArgument
 
   const timeoutSec = getTimeoutSec(timeout ?? process.env.VIEWPRESS_TIMEOUT ?? '30');
   return {
-    arguments: addJsonArgument(remainingArguments, json),
+    arguments: getCommandArguments(remainingArguments, json, help),
     options: {
       ...(apiUrl === undefined ? {} : { apiUrl }),
       json,
       nonInteractive: nonInteractive || json,
       timeoutSec,
     },
+    version,
   };
+}
+
+function getCommandArguments(arguments_: string[], json: boolean, help: boolean): string[] {
+  if (help) {
+    return [...arguments_, '--help'];
+  }
+
+  return addJsonArgument(arguments_, json);
 }
 
 function addJsonArgument(arguments_: string[], json: boolean): string[] {
   const command = arguments_[0];
-  if (!json || command === undefined || command === 'auth' || command === '--help' || command === '-h' || command === '--version' || command === '-V') {
+  if (!json || command === undefined || command === 'auth') {
     return arguments_;
   }
 

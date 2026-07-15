@@ -82,7 +82,7 @@ export async function runAudio(resource: 'music' | 'sfx' | 'speech', arguments_:
 }
 
 async function generateAudio(resource: 'music' | 'sfx' | 'speech', arguments_: string[]): Promise<void> {
-  if (arguments_.length === 1 && (arguments_[0] === '--help' || arguments_[0] === '-h')) {
+  if (arguments_.includes('--help')) {
     showAudioGenerateHelp(resource);
     return;
   }

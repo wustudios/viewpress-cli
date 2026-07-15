@@ -16,6 +16,10 @@ export async function runCredits(arguments_: string[]): Promise<number> {
     const command = arguments_[0];
 
     if (command === 'get') {
+      if (arguments_.includes('--help')) {
+        showCreditsHelp();
+        return 0;
+      }
       await getCredits(arguments_.slice(1));
       return 0;
     }

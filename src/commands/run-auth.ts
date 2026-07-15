@@ -9,6 +9,19 @@ import { CommandUsageError } from './command-usage-error.ts';
 export async function runAuth(arguments_: string[]): Promise<number> {
   const command = arguments_[0];
 
+  if (arguments_.includes('--help') && (command === undefined || command === '--help')) {
+    showAuthHelp();
+    return 0;
+  }
+
+  if (
+    arguments_.includes('--help') &&
+    (command === 'login' || command === 'set-key' || command === 'status' || command === 'logout')
+  ) {
+    showAuthCommandHelp(command);
+    return 0;
+  }
+
   if (arguments_.length > 1) {
     return writeError(new CommandUsageError('Auth commands do not accept additional arguments.'));
   }
@@ -33,7 +46,7 @@ export async function runAuth(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    if (command === undefined || command === '--help' || command === '-h') {
+    if (command === undefined || command === '--help') {
       showAuthHelp();
       return 0;
     }
@@ -42,4 +55,13 @@ export async function runAuth(arguments_: string[]): Promise<number> {
   } catch (error) {
     return writeError(error, 'Authentication failed.');
   }
+}
+
+function showAuthCommandHelp(command: 'login' | 'logout' | 'set-key' | 'status'): void {
+  if (command === 'set-key') {
+    process.stdout.write('Usage: viewpress auth set-key\n\nRead a vp_ API key from stdin or VIEWPRESS_API_KEY.\n');
+    return;
+  }
+
+  process.stdout.write(`Usage: viewpress auth ${command}\n`);
 }

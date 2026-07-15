@@ -51,11 +51,19 @@ export async function runImages(arguments_: string[]): Promise<number> {
     const command = arguments_[0];
 
     if (command === 'generate') {
+      if (arguments_.includes('--help')) {
+        showImageCommandHelp(command);
+        return 0;
+      }
       await generateImage(arguments_.slice(1));
       return 0;
     }
 
     if (command === 'edit') {
+      if (arguments_.includes('--help')) {
+        showImageCommandHelp(command);
+        return 0;
+      }
       await editImage(arguments_.slice(1));
       return 0;
     }
@@ -271,4 +279,13 @@ function writeImageResponse(response: z.infer<typeof imageResponseSchema>, json:
 
 function showImagesHelp(): void {
   process.stdout.write(`Usage: viewpress images <command>\n\nCommands:\n  generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [--aspect-ratio <ratio>] [--model <model>] [--json]\n  edit --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --reference-asset-id <id>... [--aspect-ratio <ratio>] [--json]\n`);
+}
+
+function showImageCommandHelp(command: 'edit' | 'generate'): void {
+  if (command === 'generate') {
+    process.stdout.write('Usage: viewpress images generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [--aspect-ratio <ratio>] [--model <model>] [--json]\n');
+    return;
+  }
+
+  process.stdout.write('Usage: viewpress images edit --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --reference-asset-id <id>... [--aspect-ratio <ratio>] [--json]\n');
 }

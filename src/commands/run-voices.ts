@@ -48,6 +48,10 @@ export async function runVoices(arguments_: string[]): Promise<number> {
     const command = arguments_[0];
 
     if (command === 'list') {
+      if (arguments_.includes('--help')) {
+        showVoicesHelp();
+        return 0;
+      }
       await listVoices(arguments_.slice(1));
       return 0;
     }

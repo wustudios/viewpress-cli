@@ -115,10 +115,18 @@ export async function runSocial(arguments_: string[]): Promise<number> {
 async function runAccounts(arguments_: string[]): Promise<void> {
   const command = arguments_[0];
   if (command === 'list') {
+    if (arguments_.includes('--help')) {
+      showAccountCommandHelp(command);
+      return;
+    }
     await listAccounts(arguments_.slice(1));
     return;
   }
   if (command === 'connect') {
+    if (arguments_.includes('--help')) {
+      showAccountCommandHelp(command);
+      return;
+    }
     await connectAccount(arguments_.slice(1));
     return;
   }
@@ -191,22 +199,42 @@ async function runPosts(arguments_: string[]): Promise<void> {
   const command = arguments_[0];
   const commandArguments = arguments_.slice(1);
   if (command === 'create') {
+    if (arguments_.includes('--help')) {
+      showPostCommandHelp(command);
+      return;
+    }
     await createPost(commandArguments);
     return;
   }
   if (command === 'list') {
+    if (arguments_.includes('--help')) {
+      showPostCommandHelp(command);
+      return;
+    }
     await listPosts(commandArguments);
     return;
   }
   if (command === 'get') {
+    if (arguments_.includes('--help')) {
+      showPostCommandHelp(command);
+      return;
+    }
     await getPostCommand(commandArguments);
     return;
   }
   if (command === 'wait') {
+    if (arguments_.includes('--help')) {
+      showPostCommandHelp(command);
+      return;
+    }
     await waitForPost(commandArguments);
     return;
   }
   if (command === 'cancel') {
+    if (arguments_.includes('--help')) {
+      showPostCommandHelp(command);
+      return;
+    }
     await cancelPost(commandArguments);
     return;
   }
@@ -613,6 +641,32 @@ function showAccountsHelp(): void {
   process.stdout.write(`Usage: viewpress social accounts <command>\n\nCommands:\n  list --project-id <id> [--json]\n  connect --project-id <id> --platform <platform> [--json]\n`);
 }
 
+function showAccountCommandHelp(command: 'connect' | 'list'): void {
+  if (command === 'list') {
+    process.stdout.write('Usage: viewpress social accounts list --project-id <id> [--json]\n');
+    return;
+  }
+
+  process.stdout.write('Usage: viewpress social accounts connect --project-id <id> --platform <platform> [--json]\n');
+}
+
 function showPostsHelp(): void {
   process.stdout.write(`Usage: viewpress social posts <command>\n\nCommands:\n  create --asset-id <id> --platform <platform> --connection-id <id> [--publish-at <ISO>] [--caption <text>] [--options <file|->] [--json]\n  list --project-id <id> [--limit <1..200>] [--json]\n  get <post-id> [--json]\n  wait <post-id> [--wait-timeout <seconds>] [--poll-interval <seconds>] [--json]\n  cancel <post-id> [--json]\n`);
+}
+
+function showPostCommandHelp(command: 'cancel' | 'create' | 'get' | 'list' | 'wait'): void {
+  if (command === 'create') {
+    process.stdout.write('Usage: viewpress social posts create --asset-id <id> --platform <platform> --connection-id <id> [--publish-at <ISO>] [--caption <text>] [--options <file|->] [--json]\n');
+    return;
+  }
+  if (command === 'list') {
+    process.stdout.write('Usage: viewpress social posts list --project-id <id> [--limit <1..200>] [--json]\n');
+    return;
+  }
+  if (command === 'wait') {
+    process.stdout.write('Usage: viewpress social posts wait <post-id> [--wait-timeout <seconds>] [--poll-interval <seconds>] [--json]\n');
+    return;
+  }
+
+  process.stdout.write(`Usage: viewpress social posts ${command} <post-id> [--json]\n`);
 }

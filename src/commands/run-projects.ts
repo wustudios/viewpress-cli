@@ -16,11 +16,19 @@ export async function runProjects(arguments_: string[]): Promise<number> {
     const command = arguments_[0];
 
     if (command === 'list') {
+      if (arguments_.includes('--help')) {
+        showProjectCommandHelp(command);
+        return 0;
+      }
       await listProjects(arguments_.slice(1));
       return 0;
     }
 
     if (command === 'create') {
+      if (arguments_.includes('--help')) {
+        showProjectCommandHelp(command);
+        return 0;
+      }
       await createProject(arguments_.slice(1));
       return 0;
     }
@@ -135,4 +143,13 @@ function getJsonOption(arguments_: string[]): boolean {
 
 function showProjectsHelp(): void {
   process.stdout.write(`Usage: viewpress projects <command>\n\nCommands:\n  list [--json]\n  create --name <name> [--json]\n`);
+}
+
+function showProjectCommandHelp(command: 'create' | 'list'): void {
+  if (command === 'list') {
+    process.stdout.write('Usage: viewpress projects list [--json]\n');
+    return;
+  }
+
+  process.stdout.write('Usage: viewpress projects create --name <name> [--json]\n');
 }

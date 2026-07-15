@@ -30,7 +30,12 @@ setRuntimeOptions({
 try {
   const parsed = parseGlobalArguments(rawArguments);
   setRuntimeOptions(parsed.options);
-  process.exitCode = await runCli(parsed.arguments);
+  if (parsed.version) {
+    showVersion(packageJson.version);
+    process.exitCode = 0;
+  } else {
+    process.exitCode = await runCli(parsed.arguments);
+  }
 } catch (error) {
   process.exitCode = writeError(error);
 }
@@ -40,10 +45,6 @@ async function runCli(cliArguments: string[]): Promise<number> {
 
   if (command === undefined || command === '--help' || command === '-h') {
     return showRootHelp(cliArguments);
-  }
-
-  if (command === '--version' || command === '-V') {
-    return showRootVersion(cliArguments);
   }
 
   if (command === 'auth') {
@@ -103,14 +104,5 @@ function showRootHelp(cliArguments: string[]): number {
   }
 
   showHelp();
-  return 0;
-}
-
-function showRootVersion(cliArguments: string[]): number {
-  if (cliArguments.length > 1) {
-    return writeError(new CommandUsageError('Version does not accept additional arguments.'));
-  }
-
-  showVersion(packageJson.version);
   return 0;
 }
