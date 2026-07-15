@@ -47,14 +47,14 @@ const createPostResponseSchema = z.object({
   state: z.literal('scheduled'),
   publishAt: z.number(),
 });
-const youtubeOptionsSchema = z.looseObject({
+const youtubeOptionsSchema = z.strictObject({
   title: z.string().max(100).optional(),
   privacy_status: z.enum(['public', 'unlisted', 'private']).default('public'),
   tags: z.array(z.string()).max(30).optional(),
   category_id: z.string().optional(),
   made_for_kids: z.boolean().optional(),
 });
-const tiktokOptionsSchema = z.looseObject({
+const tiktokOptionsSchema = z.strictObject({
   privacy_level: z.enum([
     'PUBLIC_TO_EVERYONE',
     'MUTUAL_FOLLOW_FRIENDS',
@@ -69,7 +69,7 @@ const tiktokOptionsSchema = z.looseObject({
   brand_organic_toggle: z.boolean().optional(),
   is_aigc: z.boolean().optional(),
 });
-const instagramOptionsSchema = z.looseObject({});
+const instagramOptionsSchema = z.strictObject({});
 const captionSchema = z.string().max(2200);
 const publishAtSchema = z.iso.datetime({ offset: true });
 
@@ -341,6 +341,12 @@ async function readPlatformOptions(
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
     throw new CommandUsageError(`Social posts --options contains invalid ${platform} options.`);
+  }
+  if (platform === 'youtube') {
+    return { youtube: parsed.data };
+  }
+  if (platform === 'tiktok') {
+    return { tiktok: parsed.data };
   }
   return parsed.data;
 }

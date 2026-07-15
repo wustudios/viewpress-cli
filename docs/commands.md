@@ -245,10 +245,12 @@ be combined with JSON output.
 | `viewpress social posts wait` | `<post-id>` | `--wait-timeout <seconds>` (default `600`), `--poll-interval <seconds>` (default `2`), `--json` |
 | `viewpress social posts cancel` | `<post-id>` | `--json` |
 
-`--options` is a JSON object for the selected platform. YouTube fields are
-`title` (max 100), `privacy_status` (`public`, `unlisted`, or `private`; default
-`public`), `tags` (up to 30), `category_id`, and `made_for_kids`. TikTok fields
-are `privacy_level` (`PUBLIC_TO_EVERYONE`, `MUTUAL_FOLLOW_FRIENDS`,
+`--options` is a JSON object containing fields for the selected platform. The
+CLI sends YouTube fields under `options.youtube` and TikTok fields under
+`options.tiktok`. YouTube fields are `title` (max 100), `privacy_status`
+(`public`, `unlisted`, or `private`; default `public`), `tags` (up to 30),
+`category_id`, and `made_for_kids`. TikTok fields are `privacy_level`
+(`PUBLIC_TO_EVERYONE`, `MUTUAL_FOLLOW_FRIENDS`,
 `FOLLOWER_OF_CREATOR`, or `SELF_ONLY`), `title` (max 2,200),
 `disable_comment`, `disable_duet`, `disable_stitch`, `brand_content_toggle`,
 `brand_organic_toggle`, and `is_aigc`. Instagram currently accepts an empty

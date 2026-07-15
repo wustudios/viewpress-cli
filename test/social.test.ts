@@ -126,7 +126,9 @@ describe('social commands', () => {
           asset_id: 'asset-1',
           caption: 'A new launch',
           connection_id: 'account-1',
-          options: { made_for_kids: false, privacy_status: 'public', tags: ['demo'], title: 'Launch' },
+          options: {
+            youtube: { made_for_kids: false, privacy_status: 'public', tags: ['demo'], title: 'Launch' },
+          },
           platform: 'youtube',
           publish_at: '2026-07-20T09:00:00+09:00',
         },
