@@ -24,7 +24,7 @@ interface MockAsset {
   error: string | undefined;
   height: number;
   id: string;
-  kind: 'video';
+  kind: string;
   mimeType: string;
   name: string;
   previewUrl: string;
@@ -88,7 +88,7 @@ describe('asset commands', () => {
     expect(get).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: `asset-ready\tvideo\tready\tLaunch\t${server.url.href}files/good\n`,
+      stdout: `asset-ready\tslideshow\tready\tLaunch\t${server.url.href}files/good\n`,
     });
     expect(wait).toEqual({
       exitCode: 0,
@@ -209,6 +209,9 @@ async function handleRequest(request: Request): Promise<Response> {
 }
 
 function getAssetForPath(pathname: string): ReturnType<typeof getAssetResponse> {
+  if (pathname.endsWith('/asset-ready')) {
+    return { ...getAssetResponse('asset-ready'), kind: 'slideshow' };
+  }
   if (pathname.endsWith('/asset-wait')) {
     waitRequestCount += 1;
     return waitRequestCount === 1

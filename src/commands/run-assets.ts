@@ -10,7 +10,7 @@ const assetStatusSchema = z.enum(['pending', 'running', 'ready', 'error', 'valid
 const assetSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
-  kind: assetKindSchema,
+  kind: z.string(),
   status: assetStatusSchema,
   url: z.string().optional(),
   previewUrl: z.string().optional(),
