@@ -1,0 +1,87 @@
+REVIEW ROUND 0
+
+Scorecard
+
+1. Product and API completeness — 7/10: All 34 current v1 operations have commands, but valid asset states and social publishing inputs are not handled correctly.
+2. Command ergonomics and human UX — 8/10: Commands are explicit and discoverable, but accepted social dates can fail in production and model duration feedback is incomplete.
+3. Automation and agent contract — 8/10: JSON envelopes, streams, and exit codes are mostly stable; wait deadlines are not hard bounds.
+4. Browser auth, security, and config — 7/10: Credential storage and header-only polling are sound, but the browser client will open an untrusted verification origin and polling requests can hang.
+5. Correctness and boundary validation — 6/10: Several CLI schemas diverge from the exact server Zod contracts.
+6. Code quality and house conventions — 8/10: Strict TypeScript and plain naming pass, but several parsers materially exceed the short-function rule.
+7. Unit/integration test quality with no live API or database I/O — 7/10: The suite is lean and fully mocked, but it codifies two invalid social contracts and lacks a real-dispatch auth-family happy path.
+8. API docs, README, build, and distribution — 8/10: Cross-platform release setup is complete, but social request documentation and model-duration guidance are not exact.
+9. Async behavior, failures, and cross-platform robustness — 7/10: Asset/social polling and safe downloads exist, but wait deadlines can be exceeded by an in-flight request and unknown asset states are rejected.
+10. Repository hygiene and atomic commit quality — 10/10: The tree is clean, prompts are tracked, commits are atomic with reasons, identity is correct, and no AI attribution or push exists.
+
+Findings
+
+High — Social publishing options are sent in the wrong server shape.
+
+- WHAT: `--options` parses direct YouTube or TikTok fields and sends them directly as `options`. The server schema requires `{youtube:{...}}` or `{tiktok:{...}}`. Zod strips the current fields to `{}`, so valid platform settings are silently lost.
+- WHERE: `src/commands/run-social.ts:217`, `src/commands/run-social.ts:338`, `test/social.test.ts:123`, and `docs/commands.md:248`. The source contract is `/Users/mike/Code/viewpress/src/lib/api/social-post-options.ts:3` and `/Users/mike/Code/viewpress/src/app/api/v1/social/posts/route.ts:34`.
+- WHAT GOOD LOOKS LIKE: Under the “exact Zod route schema” rule, keep the ergonomic platform-specific file but wrap parsed fields under the selected platform before sending them. Make the single social-post integration assert the server-valid envelope.
+
+High — The CLI accepts and documents `publish_at` values the production route rejects.
+
+- WHAT: The CLI accepts timezone offsets and the happy-path test sends `2026-07-20T09:00:00+09:00`. The current server uses `z.string().datetime()` without `offset: true`, which accepts UTC `Z` form but rejects that value.
+- WHERE: `src/commands/run-social.ts:74`, `src/commands/run-social.ts:308`, `test/social.test.ts:91`, `test/social.test.ts:131`, `docs/commands.md:242`, and `docs/api.md:109`. The source schema is `/Users/mike/Code/viewpress/src/app/api/v1/social/posts/route.ts:34`.
+- WHAT GOOD LOOKS LIKE: Under boundary validation, either normalize every accepted instant to UTC `Z` before the request or mirror the server restriction exactly. Tests and docs must use the production-valid representation.
+
+High — Server-valid asset statuses are rejected before commands can handle them.
+
+- WHAT: The public asset schema intentionally exposes `status` as any string, but the CLI enumerates six values. A new or existing server-valid status becomes `invalid_response`. Even after widening the schema, the wait loop currently treats every unknown state as terminal instead of tolerating it.
+- WHERE: `src/commands/run-assets.ts:12`, `src/commands/run-assets.ts:17`, and `src/commands/run-assets.ts:208`. The source of truth is `/Users/mike/Code/viewpress/src/lib/api/public-asset.ts:8`; the CLI’s own documentation acknowledges this at `docs/api.md:81` and `docs/api.md:148`.
+- WHAT GOOD LOOKS LIKE: Under the public response-schema rule, parse `status` with `z.string()`. `ready` succeeds, the named terminal states fail, and unknown nonterminal strings continue polling until timeout.
+
+High — Browser login opens a server-supplied verification URL without checking its origin.
+
+- WHAT: Any syntactically valid URL returned as `verification_url`, including another HTTPS host or a non-HTTP scheme, is shown and opened. This creates a phishing boundary in an authentication flow.
+- WHERE: `src/auth/create-browser-login-session.ts:34`, `src/auth/create-browser-login-session.ts:49`, `src/auth/login-with-browser.ts:14`, and `src/auth/open-browser.ts:3`. The only security test at `test/browser-login.test.ts:7` checks polling-token placement but not the external-host invariant.
+- WHAT GOOD LOOKS LIKE: Under the trusted-auth-origin rule, require HTTPS and the same origin as the configured API, with only the documented loopback exception for local mocks. Reject before showing or opening the URL, and add the assertion to the existing focused browser security test rather than adding test volume.
+
+Medium — Requested wait deadlines are not hard deadlines.
+
+- WHAT: `--wait-timeout 1` can block for the global request timeout, normally 30 seconds, because each poll request owns an independent timeout. Browser session creation and polling have no abort timeout at all, so one unresponsive request can outlive session expiry indefinitely.
+- WHERE: `src/commands/run-assets.ts:198`, `src/commands/run-social.ts:387`, `src/api/get-api-response.ts:56`, `src/auth/create-browser-login-session.ts:8`, and `src/auth/poll-browser-login-session.ts:21`.
+- WHAT GOOD LOOKS LIKE: Under async deadline semantics, cap each poll request by the remaining overall deadline and abort browser requests at the earlier of request timeout or session expiry. A wait timeout must bound wall-clock execution.
+
+Medium — Video duration validation and documentation drift from executable server behavior.
+
+- WHAT: The CLI locally restricts only V-LITE and V-UGC. It therefore accepts unusable V-PRO and V-PRO-TRANSITION durations below 3 seconds and V-ULTRA below 4 seconds. The style catalog says V-ULTRA starts at 3 seconds while the generation runtime rejects below 4, and the CLI docs do not identify that server inconsistency.
+- WHERE: `src/commands/run-video-generation.ts:307`, `docs/api.md:48`, and `docs/commands.md:92`. Server evidence is `/Users/mike/Code/viewpress/src/lib/api/styles-catalog.ts:104` and `/Users/mike/Code/viewpress/src/lib/fal/video/build-video-input.ts:28`.
+- WHAT GOOD LOOKS LIKE: Under current executable behavior as source of truth, validate all six model ranges before both estimate and generation. Document the V-ULTRA catalog/runtime mismatch as a precise current server contract defect.
+
+Medium — The lean integration suite does not validate the auth family through real dispatch and its social mock permits invalid requests.
+
+- WHAT: Config storage and browser polling are tested by importing functions directly, but no auth-family happy path runs through CLI dispatch and persisted config. The social happy path accepts the malformed options envelope and timezone-offset datetime instead of applying the exact server schemas.
+- WHERE: `test/config.test.ts:29`, `test/browser-login.test.ts:7`, `test/social.test.ts:87`, and `.claude/reviewer.md:32`.
+- WHAT GOOD LOOKS LIKE: Under the test-strategy steering, keep exactly one real-dispatch auth-family happy integration covering set-key/status/logout with isolated config. Correct the existing social integration rather than adding a second happy test. Retain only the named security negatives.
+
+Low — Several command parsers violate the short-function house rule.
+
+- WHAT: Resource files preserve one export, but multiple parsing functions span roughly 65–85 lines and combine iteration, state mutation, validation, and result construction.
+- WHERE: `src/commands/run-video-generation.ts:100`, `src/commands/run-video-style-tool.ts:66`, `src/commands/run-video-style-tool.ts:170`, `src/commands/run-video-style-tool.ts:279`, `src/commands/run-assets.ts:320`, and `src/commands/run-social.ts:213`.
+- WHAT GOOD LOOKS LIKE: Under the “functions stay under ~25 lines” rule, use small named argument readers and separate validation/result functions, as already demonstrated in `src/commands/run-audio.ts:128`. Do not add a shared parser framework.
+
+Exact gates run
+
+- Read `.claude/reviewer.md`, Viewpress `AGENTS.md`, `CLAUDE.md`, and `convex/_generated/ai/guidelines.md`.
+- Inspected all 30 v1 route files and all 34 HTTP handlers, including their exact Zod request and response schemas and referenced public schemas.
+- `npm run check` — PASS:
+  - TypeScript — PASS
+  - ESLint — PASS
+  - Bun tests — 13 passed, 0 failed, 92 expectations
+  - Documentation check — PASS
+- `npm run build:native` — PASS.
+- `npm run smoke` — PASS.
+- `npm run build` — PASS for five targets.
+- `npm run release:checksums` — PASS.
+- `(cd dist && shasum -a 256 -c SHA256SUMS)` — PASS for all five binaries. An initial root-directory checksum invocation failed because manifest paths are relative to `dist`; this was reviewer invocation context, not a generated-checksum defect.
+- `file dist/viewpress-*` — PASS: Mach-O arm64/x64, ELF arm64/x64, and PE32+ x64.
+- `git diff --check` — PASS.
+- `git status --short` — clean.
+- Commit identity and AI-attribution scan — PASS.
+- `git fsck --no-progress --no-dangling` — PASS.
+- No live API calls or database access were made.
+
+FAIL
