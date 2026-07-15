@@ -68,8 +68,8 @@ requires 1 to 6 repeated `--reference-asset-id <id>` flags. It does not accept
 
 ## Video generation
 
-`viewpress videos generate` and `viewpress videos estimate` accept the same
-input. Both require:
+`viewpress videos generate` and `viewpress videos estimate` accept the same CLI
+fields. Both require:
 
 - `--video-id <id>`
 - `--name <1..120 chars>`
@@ -101,6 +101,10 @@ The CLI applies the executable per-model duration rules before both commands:
 The current style catalog reports a 3-second `V-ULTRA` minimum, but generation
 runtime rejects anything below 4 seconds. The CLI uses the runtime rule.
 `estimate` returns `{status:"estimate",credits}` and does not create an asset.
+The server calculates that price before checking video ownership and the full
+generation-only model, reference, and input rules. An estimate can therefore
+succeed for a request that generation rejects; it is a price calculation, not
+a generation preflight.
 
 ## Video style tools
 
@@ -185,11 +189,13 @@ least one `tracks` entry and a positive integer `durationInFrames`. Optional
 pass through to the server. `--json` is optional.
 
 `viewpress media import` requires `--video-id` and `--url <https-url>`.
-The URL must be public HTTPS without embedded credentials. Loopback, private,
-link-local, benchmark, carrier-grade NAT, multicast, and private IPv6
-hosts are rejected. Optional: `--name <1..120 chars>` and `--json`. A successful
-import is ready immediately and returns `assetId`, `status`, `kind`, and
-`mimeType`.
+The CLI requires HTTPS without embedded credentials and rejects literal
+loopback, private, link-local, benchmark, carrier-grade NAT, multicast, and
+private IPv6 hostnames. It does not resolve hostnames. The current server also
+checks only the original hostname text and follows redirects without validating
+their destinations, so these checks do not guarantee a public network target.
+Optional: `--name <1..120 chars>` and `--json`. A successful import is ready
+immediately and returns `assetId`, `status`, `kind`, and `mimeType`.
 
 ## Assets
 
