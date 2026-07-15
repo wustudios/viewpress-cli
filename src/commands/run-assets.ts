@@ -199,7 +199,16 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
   const deadline = Date.now() + options.waitTimeoutSec * 1000;
 
   while (Date.now() <= deadline) {
-    const asset = await getAsset(options.assetId);
+    const remainingRequestMs = deadline - Date.now();
+    if (remainingRequestMs <= 0) {
+      throwWaitTimeout(options.assetId, options.waitTimeoutSec);
+    }
+    const asset = await getAssetBeforeDeadline({
+      assetId: options.assetId,
+      deadline,
+      remainingMs: remainingRequestMs,
+      waitTimeoutSec: options.waitTimeoutSec,
+    });
     if (asset.status === 'ready') {
       writeAsset(asset, options.json);
       return;
@@ -220,6 +229,23 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
   }
 
   throwWaitTimeout(options.assetId, options.waitTimeoutSec);
+}
+
+async function getAssetBeforeDeadline(
+  arguments_: { assetId: string; deadline: number; remainingMs: number; waitTimeoutSec: number },
+): Promise<z.infer<typeof assetSchema>> {
+  try {
+    const asset = await getAsset(arguments_.assetId, arguments_.remainingMs);
+    if (Date.now() >= arguments_.deadline) {
+      throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
+    }
+    return asset;
+  } catch (error) {
+    if (Date.now() >= arguments_.deadline) {
+      throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
+    }
+    throw error;
+  }
 }
 
 function getWaitOptions(arguments_: string[]): {
@@ -631,8 +657,13 @@ async function runTransform(assetId: string, path: string, body: unknown, json: 
   writeTransformResponse(path, response, json);
 }
 
-async function getAsset(assetId: string): Promise<z.infer<typeof assetSchema>> {
-  return getApiResponse({ method: 'GET', path: `assets/${encodeURIComponent(assetId)}`, schema: assetSchema });
+async function getAsset(assetId: string, timeoutMs?: number): Promise<z.infer<typeof assetSchema>> {
+  return getApiResponse({
+    method: 'GET',
+    path: `assets/${encodeURIComponent(assetId)}`,
+    schema: assetSchema,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  });
 }
 
 function getAssetAndJson(arguments_: string[], command: string): { assetId: string; json: boolean } {

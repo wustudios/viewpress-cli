@@ -232,6 +232,7 @@ strings, and times out with exit `4`. Downloads use the server asset URL without
 adding the API key. They require HTTPS, except for local test loopback URLs.
 File downloads use a temporary file and rename only after the stream finishes.
 `--output -` writes raw bytes to stdout and cannot be combined with JSON output.
+The wait timeout is a wall-clock limit and also bounds each in-flight poll.
 
 ## Social
 
@@ -260,7 +261,8 @@ object only.
 normalizes it to the UTC `Z` form required by the API.
 
 `social posts wait` succeeds at `published`, fails at `failed` or `canceled`,
-and times out with exit `4`.
+and times out with exit `4`. Its wait timeout is a wall-clock limit and also
+bounds each in-flight poll.
 
 ## File and stdin input
 

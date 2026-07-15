@@ -176,12 +176,18 @@ describe('asset commands', () => {
 
   test('returns a JSON error for terminal wait failures', async () => {
     const terminal = await runCli(['--json', 'assets', 'wait', 'asset-error', '--poll-interval', '0.01']);
+    const timeout = await runCli(['--json', 'assets', 'wait', 'asset-timeout', '--wait-timeout', '0.02']);
 
     expect(terminal.exitCode).toBe(1);
     expect(terminal.stdout).toBe('');
     expect(terminal.stderr).toBe(
       '{"ok":false,"error":{"type":"terminal_error","message":"Asset asset-error ended with status error: render failed"}}\n',
     );
+    expect(timeout).toEqual({
+      exitCode: 4,
+      stderr: '{"ok":false,"error":{"type":"timeout_error","message":"Timed out waiting for asset asset-timeout after 0.02 seconds."}}\n',
+      stdout: '',
+    });
   });
 });
 
@@ -201,6 +207,10 @@ async function handleRequest(request: Request): Promise<Response> {
   }
   if (url.pathname === '/api/v1/assets') {
     return Response.json({ assets: [getAssetResponse('asset-ready')] });
+  }
+  if (url.pathname.endsWith('/asset-timeout')) {
+    await Bun.sleep(100);
+    return Response.json({ ...getAssetResponse('asset-timeout'), status: 'running', url: undefined });
   }
   if (url.pathname.startsWith('/api/v1/assets/') && request.method === 'GET') {
     return Response.json(getAssetForPath(url.pathname));

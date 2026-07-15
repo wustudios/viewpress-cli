@@ -403,7 +403,16 @@ async function waitForPost(arguments_: string[]): Promise<void> {
   const deadline = Date.now() + options.waitTimeoutSec * 1000;
 
   while (Date.now() <= deadline) {
-    const post = await getPost(options.postId);
+    const remainingRequestMs = deadline - Date.now();
+    if (remainingRequestMs <= 0) {
+      throwWaitTimeout(options.postId, options.waitTimeoutSec);
+    }
+    const post = await getPostBeforeDeadline({
+      deadline,
+      postId: options.postId,
+      remainingMs: remainingRequestMs,
+      waitTimeoutSec: options.waitTimeoutSec,
+    });
     if (post.state === 'published') {
       writePost(post, options.json);
       return;
@@ -423,6 +432,23 @@ async function waitForPost(arguments_: string[]): Promise<void> {
     await Bun.sleep(Math.min(options.pollIntervalSec * 1000, remainingMs));
   }
   throwWaitTimeout(options.postId, options.waitTimeoutSec);
+}
+
+async function getPostBeforeDeadline(
+  arguments_: { deadline: number; postId: string; remainingMs: number; waitTimeoutSec: number },
+): Promise<z.infer<typeof postSchema>> {
+  try {
+    const post = await getPost(arguments_.postId, arguments_.remainingMs);
+    if (Date.now() >= arguments_.deadline) {
+      throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
+    }
+    return post;
+  } catch (error) {
+    if (Date.now() >= arguments_.deadline) {
+      throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
+    }
+    throw error;
+  }
 }
 
 function getWaitOptions(arguments_: string[]): {
@@ -455,9 +481,12 @@ async function cancelPost(arguments_: string[]): Promise<void> {
   process.stdout.write(`Canceled social post ${options.postId}.\n`);
 }
 
-async function getPost(postId: string): Promise<z.infer<typeof postSchema>> {
+async function getPost(postId: string, timeoutMs?: number): Promise<z.infer<typeof postSchema>> {
   return getApiResponse({
-    method: 'GET', path: `social/posts/${encodeURIComponent(postId)}`, schema: postSchema,
+    method: 'GET',
+    path: `social/posts/${encodeURIComponent(postId)}`,
+    schema: postSchema,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
   });
 }
 

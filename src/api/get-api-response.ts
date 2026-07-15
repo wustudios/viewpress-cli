@@ -11,6 +11,7 @@ interface GetApiResponseArguments<ResponseData> {
   path: string;
   query?: URLSearchParams;
   schema: z.ZodType<ResponseData>;
+  timeoutMs?: number;
 }
 
 export async function getApiResponse<ResponseData>(
@@ -62,7 +63,11 @@ async function sendRequest<ResponseData>(
 ): Promise<Response> {
   const fetchRequest = arguments_.fetchRequest ?? fetch;
   const headers = { Accept: 'application/json', Authorization: `Bearer ${apiKey}` };
-  const timeoutSignal = AbortSignal.timeout(getRuntimeOptions().timeoutSec * 1_000);
+  const timeoutMs = Math.min(
+    getRuntimeOptions().timeoutSec * 1_000,
+    arguments_.timeoutMs ?? Number.POSITIVE_INFINITY,
+  );
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
 
   try {
     if (arguments_.body === undefined) {
@@ -79,7 +84,7 @@ async function sendRequest<ResponseData>(
     if (timeoutSignal.aborted) {
       throw new CliError({
         exitCode: 4,
-        message: `Request timed out after ${String(getRuntimeOptions().timeoutSec)} seconds.`,
+        message: `Request timed out after ${String(timeoutMs / 1_000)} seconds.`,
         type: 'timeout_error',
       });
     }
