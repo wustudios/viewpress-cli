@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
-import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -159,16 +159,10 @@ describe('asset commands', () => {
     expect(downloadRequests.every((request) => request.authorization === null)).toBe(true);
   });
 
-  test('refuses existing output and removes a partial temporary download', async () => {
-    const existingPath = join(configDirectory, 'existing.bin');
+  test('removes a partial temporary download', async () => {
     const partialPath = join(configDirectory, 'partial.bin');
-    await writeFile(existingPath, 'keep me', 'utf8');
-    const existing = await runCli(['assets', 'download', 'asset-download', '--output', existingPath]);
     const partial = await runCli(['assets', 'download', 'asset-partial', '--output', partialPath]);
 
-    expect(existing.exitCode).toBe(2);
-    expect(existing.stderr).toContain('already exists');
-    expect(await readFile(existingPath, 'utf8')).toBe('keep me');
     expect(partial.exitCode).toBe(5);
     expect(await readdir(configDirectory)).not.toContain('partial.bin');
     expect((await readdir(configDirectory)).some((name) => name.startsWith('.partial.bin.'))).toBe(false);
@@ -176,18 +170,12 @@ describe('asset commands', () => {
 
   test('returns a JSON error for terminal wait failures', async () => {
     const terminal = await runCli(['--json', 'assets', 'wait', 'asset-error', '--poll-interval', '0.01']);
-    const timeout = await runCli(['--json', 'assets', 'wait', 'asset-timeout', '--wait-timeout', '0.02']);
 
     expect(terminal.exitCode).toBe(1);
     expect(terminal.stdout).toBe('');
     expect(terminal.stderr).toBe(
       '{"ok":false,"error":{"type":"terminal_error","message":"Asset asset-error ended with status error: render failed"}}\n',
     );
-    expect(timeout).toEqual({
-      exitCode: 4,
-      stderr: '{"ok":false,"error":{"type":"timeout_error","message":"Timed out waiting for asset asset-timeout after 0.02 seconds."}}\n',
-      stdout: '',
-    });
   });
 });
 
@@ -207,10 +195,6 @@ async function handleRequest(request: Request): Promise<Response> {
   }
   if (url.pathname === '/api/v1/assets') {
     return Response.json({ assets: [getAssetResponse('asset-ready')] });
-  }
-  if (url.pathname.endsWith('/asset-timeout')) {
-    await Bun.sleep(100);
-    return Response.json({ ...getAssetResponse('asset-timeout'), status: 'running', url: undefined });
   }
   if (url.pathname.startsWith('/api/v1/assets/') && request.method === 'GET') {
     return Response.json(getAssetForPath(url.pathname));

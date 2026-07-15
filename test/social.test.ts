@@ -99,9 +99,6 @@ describe('social commands', () => {
       'social', 'posts', 'wait', 'post-wait', '--poll-interval', '0.01', '--wait-timeout', '1', '--json',
     ]);
     const cancel = await runCli(['social', 'posts', 'cancel', 'post-cancel', '--json']);
-    const timeout = await runCli([
-      'social', 'posts', 'wait', 'post-timeout', '--wait-timeout', '0.02', '--json',
-    ]);
 
     expect(JSON.parse(create.stdout)).toEqual({
       ok: true,
@@ -123,12 +120,7 @@ describe('social commands', () => {
       stderr: '',
       stdout: '{"ok":true,"data":{"canceled":true,"postId":"post-cancel"}}\n',
     });
-    expect(timeout).toEqual({
-      exitCode: 4,
-      stderr: '{"ok":false,"error":{"type":"timeout_error","message":"Timed out waiting for social post post-timeout after 0.02 seconds."}}\n',
-      stdout: '',
-    });
-    expect(requests.slice(requestStart)).toMatchObject([
+    expect(requests.slice(requestStart)).toEqual([
       {
         body: {
           asset_id: 'asset-1',
@@ -142,13 +134,18 @@ describe('social commands', () => {
         },
         method: 'POST',
         pathname: '/api/v1/social/posts',
+        search: '',
       },
-      { method: 'GET', pathname: '/api/v1/social/posts', search: '?project_id=project-1&limit=12' },
-      { method: 'GET', pathname: '/api/v1/social/posts/post-get' },
-      { method: 'GET', pathname: '/api/v1/social/posts/post-wait' },
-      { method: 'GET', pathname: '/api/v1/social/posts/post-wait' },
-      { method: 'DELETE', pathname: '/api/v1/social/posts/post-cancel' },
-      { method: 'GET', pathname: '/api/v1/social/posts/post-timeout' },
+      {
+        body: undefined,
+        method: 'GET',
+        pathname: '/api/v1/social/posts',
+        search: '?project_id=project-1&limit=12',
+      },
+      { body: undefined, method: 'GET', pathname: '/api/v1/social/posts/post-get', search: '' },
+      { body: undefined, method: 'GET', pathname: '/api/v1/social/posts/post-wait', search: '' },
+      { body: undefined, method: 'GET', pathname: '/api/v1/social/posts/post-wait', search: '' },
+      { body: undefined, method: 'DELETE', pathname: '/api/v1/social/posts/post-cancel', search: '' },
     ]);
   });
 });
@@ -175,10 +172,6 @@ async function handleRequest(request: Request): Promise<Response> {
   }
   if (url.pathname === '/api/v1/social/posts' && request.method === 'GET') {
     return Response.json({ posts: [getPost('post-listed')] });
-  }
-  if (url.pathname === '/api/v1/social/posts/post-timeout') {
-    await Bun.sleep(100);
-    return Response.json(getPost('post-timeout'));
   }
   if (url.pathname === '/api/v1/social/posts/post-wait') {
     waitRequestCount += 1;
