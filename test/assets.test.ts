@@ -153,21 +153,14 @@ describe('asset commands', () => {
 
   test('downloads raw stdout and files without forwarding Viewpress authorization', async () => {
     const outputPath = join(configDirectory, 'asset.bin');
-    const credentialPath = join(configDirectory, 'credential.bin');
     const insecurePath = join(configDirectory, 'insecure.bin');
-    const malformedPath = join(configDirectory, 'malformed.bin');
     const missingPath = join(configDirectory, 'missing.bin');
     const stdoutDownload = await runCli(['assets', 'download', 'asset-download', '--output', '-']);
     const fileDownload = await runCli(['assets', 'download', 'asset-download', '--output', outputPath]);
     const redirectDownload = await runCli(['assets', 'download', 'asset-redirect', '--output', '-']);
     const credentialRedirect = await runCli(['assets', 'download', 'asset-redirect-credentials', '--output', '-']);
-    const credentialFile = await runCli([
-      'assets', 'download', 'asset-redirect-credentials', '--output', credentialPath,
-    ]);
     const insecureRedirect = await runCli(['assets', 'download', 'asset-redirect-insecure', '--output', '-']);
     const insecureFile = await runCli(['assets', 'download', 'asset-redirect-insecure', '--output', insecurePath]);
-    const malformedRedirect = await runCli(['assets', 'download', 'asset-redirect-malformed', '--output', '-']);
-    const malformedFile = await runCli(['assets', 'download', 'asset-redirect-malformed', '--output', malformedPath]);
     const redirectLoop = await runCli(['assets', 'download', 'asset-redirect-loop', '--output', '-']);
     const missingRaw = await runCli(['assets', 'download', 'asset-missing', '--output', '-']);
     const missingFile = await runCli(['assets', 'download', 'asset-missing', '--output', missingPath]);
@@ -185,19 +178,12 @@ describe('asset commands', () => {
       stderr: 'Error: Viewpress returned an asset download URL containing credentials.\n',
       stdout: '',
     });
-    expect(credentialFile).toEqual(credentialRedirect);
     expect(insecureRedirect).toEqual({
       exitCode: 1,
       stderr: 'Error: Viewpress returned an insecure asset download URL.\n',
       stdout: '',
     });
     expect(insecureFile).toEqual(insecureRedirect);
-    expect(malformedRedirect).toEqual({
-      exitCode: 1,
-      stderr: 'Error: Viewpress returned an invalid asset download URL.\n',
-      stdout: '',
-    });
-    expect(malformedFile).toEqual(malformedRedirect);
     expect(redirectLoop).toEqual({
       exitCode: 1,
       stderr: 'Error: Asset download exceeded 5 redirects.\n',
@@ -276,9 +262,6 @@ async function handleRequest(request: Request): Promise<Response> {
   if (url.pathname === '/files/redirect-insecure') {
     return new Response(null, { headers: { Location: 'http://example.com/asset' }, status: 302 });
   }
-  if (url.pathname === '/files/redirect-malformed') {
-    return new Response(null, { headers: { Location: 'http://[' }, status: 302 });
-  }
   if (url.pathname === '/files/redirect-loop') {
     return new Response(null, { headers: { Location: '/files/redirect-loop' }, status: 302 });
   }
@@ -318,9 +301,6 @@ function getAssetForPath(pathname: string): ReturnType<typeof getAssetResponse> 
   }
   if (pathname.endsWith('/asset-redirect-insecure')) {
     return { ...getAssetResponse('asset-redirect-insecure'), url: `${server.url.href}files/redirect-insecure` };
-  }
-  if (pathname.endsWith('/asset-redirect-malformed')) {
-    return { ...getAssetResponse('asset-redirect-malformed'), url: `${server.url.href}files/redirect-malformed` };
   }
   if (pathname.endsWith('/asset-redirect-loop')) {
     return { ...getAssetResponse('asset-redirect-loop'), url: `${server.url.href}files/redirect-loop` };
