@@ -1,7 +1,8 @@
 import { arch, platform } from 'node:process';
 
 const extension = platform === 'win32' ? '.exe' : '';
-const binaryPath = `dist/viewpress-${platform}-${arch}${extension}`;
+const platformName = platform === 'win32' ? 'windows' : platform;
+const binaryPath = `dist/viewpress-${platformName}-${arch}${extension}`;
 const version = runBinary(['--version']).trim();
 
 if (version !== '0.1.0') {

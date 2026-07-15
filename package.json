@@ -6,8 +6,10 @@
   "scripts": {
     "build": "bun run scripts/build.ts",
     "build:native": "bun run scripts/build.ts --native",
-    "check": "npm run typecheck && npm run lint && npm test",
+    "check": "npm run typecheck && npm run lint && npm test && npm run docs:check",
+    "docs:check": "bun run scripts/check-docs.ts",
     "lint": "eslint .",
+    "release:checksums": "bun run scripts/write-checksums.ts",
     "smoke": "bun run scripts/smoke.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

@@ -19,7 +19,8 @@ for (const build of selectedBuilds) {
 }
 
 function getNativeBuild(): (typeof builds)[number] {
-  const target = `bun-${platform}-${arch}`;
+  const platformName = platform === 'win32' ? 'windows' : platform;
+  const target = `bun-${platformName}-${arch}`;
   const build = builds.find((candidate) => candidate.target === target);
 
   if (!build) {
