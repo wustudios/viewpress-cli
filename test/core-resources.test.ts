@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer } from 'node:net';
+import type { Socket } from 'node:net';
 
 interface RecordedRequest {
   body: unknown;
@@ -17,11 +19,27 @@ interface CliResult {
 }
 
 const requests: RecordedRequest[] = [];
+let apiBodyServer: ReturnType<typeof createServer>;
+let apiBodyServerUrl = '';
 let configDirectory = '';
 let server: ReturnType<typeof Bun.serve>;
 
 beforeAll(async () => {
   configDirectory = await mkdtemp(join(tmpdir(), 'viewpress-cli-resources-'));
+  apiBodyServer = createServer((socket) => {
+    socket.once('data', (request) => {
+      sendApiBodyResponse(socket, request.toString());
+    });
+  });
+  await new Promise<void>((resolve, reject) => {
+    apiBodyServer.once('error', reject);
+    apiBodyServer.listen(0, '127.0.0.1', resolve);
+  });
+  const apiBodyAddress = apiBodyServer.address();
+  if (!apiBodyAddress || typeof apiBodyAddress === 'string') {
+    throw new Error('API body server did not expose a TCP port.');
+  }
+  apiBodyServerUrl = `http://127.0.0.1:${String(apiBodyAddress.port)}`;
   server = Bun.serve({
     fetch: handleRequest,
     hostname: '127.0.0.1',
@@ -31,6 +49,15 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await server.stop(true);
+  await new Promise<void>((resolve, reject) => {
+    apiBodyServer.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
   await rm(configDirectory, { force: true, recursive: true });
 });
 
@@ -113,8 +140,54 @@ describe('core resource commands', () => {
     expect(requests.at(-1)?.url.searchParams.toString()).toBe(
       'project_id=project-1&query=calm&gender=female&limit=12',
     );
+
+    const bodyTimeout = await runCli(
+      ['--timeout', '0.05', '--json', 'projects', 'list'],
+      `${apiBodyServerUrl}/timeout/api/v1`,
+    );
+    const truncatedBody = await runCli(
+      ['--json', 'projects', 'list'],
+      `${apiBodyServerUrl}/truncated/api/v1`,
+    );
+    const malformedBody = await runCli(
+      ['--json', 'projects', 'list'],
+      `${apiBodyServerUrl}/malformed/api/v1`,
+    );
+
+    expect(bodyTimeout).toEqual({
+      exitCode: 4,
+      stderr: '{"ok":false,"error":{"type":"timeout_error","message":"Request timed out after 0.05 seconds."}}\n',
+      stdout: '',
+    });
+    expect(truncatedBody.exitCode).toBe(5);
+    expect(truncatedBody.stderr).toContain('"type":"transport_error"');
+    expect(truncatedBody.stdout).toBe('');
+    expect(malformedBody).toEqual({
+      exitCode: 1,
+      stderr: '{"ok":false,"error":{"type":"invalid_response","message":"Viewpress returned a non-JSON response for GET projects with status 200.","status":200}}\n',
+      stdout: '',
+    });
   });
 });
+
+function sendApiBodyResponse(socket: Socket, request: string): void {
+  const partialBody = '{"projects":[';
+  if (request.startsWith('GET /timeout/')) {
+    socket.write(getHttpResponse(partialBody, 100));
+    return;
+  }
+  if (request.startsWith('GET /truncated/')) {
+    socket.end(getHttpResponse(partialBody, 100));
+    return;
+  }
+
+  const malformedBody = '{"projects":';
+  socket.end(getHttpResponse(malformedBody, Buffer.byteLength(malformedBody)));
+}
+
+function getHttpResponse(body: string, contentLength: number): string {
+  return `HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${String(contentLength)}\r\nConnection: close\r\n\r\n${body}`;
+}
 
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);

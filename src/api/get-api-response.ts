@@ -14,6 +14,12 @@ interface GetApiResponseArguments<ResponseData> {
   timeoutMs?: number;
 }
 
+interface ApiRequest {
+  response: Response;
+  signal: AbortSignal;
+  timeoutMs: number;
+}
+
 export async function getApiResponse<ResponseData>(
   arguments_: GetApiResponseArguments<ResponseData>,
 ): Promise<ResponseData> {
@@ -28,11 +34,11 @@ export async function getApiResponse<ResponseData>(
   }
 
   const url = getRequestUrl(config.apiUrl, arguments_.path, arguments_.query);
-  const response = await sendRequest(arguments_, url, config.apiKey);
-  const value = await getResponseValue(response, arguments_);
+  const request = await sendRequest(arguments_, url, config.apiKey);
+  const value = await getResponseValue(request, arguments_);
 
-  if (!response.ok) {
-    throw getApiError(value, response.status);
+  if (!request.response.ok) {
+    throw getApiError(value, request.response.status);
   }
 
   const parsed = arguments_.schema.safeParse(value);
@@ -60,7 +66,7 @@ async function sendRequest<ResponseData>(
   arguments_: GetApiResponseArguments<ResponseData>,
   url: URL,
   apiKey: string,
-): Promise<Response> {
+): Promise<ApiRequest> {
   const fetchRequest = arguments_.fetchRequest ?? fetch;
   const headers = { Accept: 'application/json', Authorization: `Bearer ${apiKey}` };
   const timeoutMs = Math.min(
@@ -71,47 +77,71 @@ async function sendRequest<ResponseData>(
 
   try {
     if (arguments_.body === undefined) {
-      return await fetchRequest(url, { headers, method: arguments_.method, signal: timeoutSignal });
+      const response = await fetchRequest(url, { headers, method: arguments_.method, signal: timeoutSignal });
+      return { response, signal: timeoutSignal, timeoutMs };
     }
 
-    return await fetchRequest(url, {
+    const response = await fetchRequest(url, {
       body: JSON.stringify(arguments_.body),
       headers: { ...headers, 'Content-Type': 'application/json' },
       method: arguments_.method,
       signal: timeoutSignal,
     });
+    return { response, signal: timeoutSignal, timeoutMs };
   } catch (error) {
     if (timeoutSignal.aborted) {
-      throw new CliError({
-        exitCode: 4,
-        message: `Request timed out after ${String(timeoutMs / 1_000)} seconds.`,
-        type: 'timeout_error',
-      });
+      throw getRequestTimeoutError(timeoutMs);
     }
 
-    const message = error instanceof Error ? error.message : 'Could not connect to Viewpress.';
-    throw new CliError({ exitCode: 5, message, type: 'transport_error' });
+    throw getTransportError(error);
   }
 }
 
 async function getResponseValue<ResponseData>(
-  response: Response,
+  request: ApiRequest,
   arguments_: GetApiResponseArguments<ResponseData>,
 ): Promise<unknown> {
+  const { response, signal, timeoutMs } = request;
   if (response.status === 204) {
     return undefined;
   }
 
   try {
     return await response.json();
-  } catch {
-    throw new CliError({
-      exitCode: response.status === 401 || response.status === 403 ? 3 : 1,
-      message: `Viewpress returned a non-JSON response for ${arguments_.method} ${arguments_.path} with status ${String(response.status)}.`,
-      status: response.status,
-      type: 'invalid_response',
-    });
+  } catch (error) {
+    if (signal.aborted) {
+      throw getRequestTimeoutError(timeoutMs);
+    }
+    if (error instanceof SyntaxError) {
+      throw getInvalidResponseError(response, arguments_);
+    }
+    throw getTransportError(error);
   }
+}
+
+function getRequestTimeoutError(timeoutMs: number): CliError {
+  return new CliError({
+    exitCode: 4,
+    message: `Request timed out after ${String(timeoutMs / 1_000)} seconds.`,
+    type: 'timeout_error',
+  });
+}
+
+function getTransportError(error: unknown): CliError {
+  const message = error instanceof Error ? error.message : 'Could not connect to Viewpress.';
+  return new CliError({ exitCode: 5, message, type: 'transport_error' });
+}
+
+function getInvalidResponseError<ResponseData>(
+  response: Response,
+  arguments_: GetApiResponseArguments<ResponseData>,
+): CliError {
+  return new CliError({
+    exitCode: response.status === 401 || response.status === 403 ? 3 : 1,
+    message: `Viewpress returned a non-JSON response for ${arguments_.method} ${arguments_.path} with status ${String(response.status)}.`,
+    status: response.status,
+    type: 'invalid_response',
+  });
 }
 
 function getApiError(value: unknown, status: number): CliError {
