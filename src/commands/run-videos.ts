@@ -13,7 +13,7 @@ const videosResponseSchema = z.object({
       id: z.string(),
       name: z.string(),
       url: z.string(),
-      createdAt: z.iso.datetime(),
+      createdAt: z.string(),
     }),
   ),
 });
