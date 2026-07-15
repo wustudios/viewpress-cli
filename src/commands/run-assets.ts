@@ -880,7 +880,7 @@ function showAssetCommandHelp(command: string): void {
     list: 'viewpress assets list --video-id <id> [--kind image|video|audio|sfx|music|render] [--limit <1..200>] [--json]',
     get: 'viewpress assets get <asset-id> [--json]',
     wait: 'viewpress assets wait <asset-id> [--wait-timeout <seconds>] [--poll-interval <seconds>] [--json]',
-    download: 'viewpress assets download <asset-id> --output <path|-> [--force]',
+    download: 'viewpress assets download <asset-id> --output <path|-> [--force] [--json]\n\n--json writes file download metadata and cannot be used with --output -.',
     'add-captions': 'viewpress assets add-captions <asset-id> [--preset-id <preset>] [--font-size <10..200>] [--color <color>] [--font-family <family>] [--font-weight <number>] [--text-transform uppercase|lowercase|none] [--alignment top|middle|bottom] [--karaoke|--no-karaoke] [--animated|--no-animated] [--words-at-a-time one|short|long] [--json]',
     smooth: 'viewpress assets smooth <asset-id> [--json]',
     humanize: 'viewpress assets humanize <asset-id> [--json]',
