@@ -89,10 +89,18 @@ Optional flags:
 - `--negative-prompt <text>`
 - `--json`
 
-The server applies tighter per-model rules. In particular, `V-LITE` accepts
-durations 4, 6, or 8; `V-UGC` accepts 4, 6, 8, or 10; and the style catalog
-defines which references each model accepts. `estimate` returns
-`{status:"estimate",credits}` and does not create an asset.
+The CLI applies the executable per-model duration rules before both commands:
+
+- `V-STANDARD`: 1 to 15 seconds
+- `V-LITE`: 4, 6, or 8 seconds
+- `V-PRO`: 3 to 15 seconds
+- `V-PRO-TRANSITION`: 3 to 15 seconds
+- `V-ULTRA`: 4 to 15 seconds
+- `V-UGC`: 4, 6, 8, or 10 seconds
+
+The current style catalog reports a 3-second `V-ULTRA` minimum, but generation
+runtime rejects anything below 4 seconds. The CLI uses the runtime rule.
+`estimate` returns `{status:"estimate",credits}` and does not create an asset.
 
 ## Video style tools
 

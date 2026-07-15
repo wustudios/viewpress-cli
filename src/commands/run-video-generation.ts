@@ -305,12 +305,43 @@ function validateVideoGenerationInput(
 }
 
 function guardModelDuration(model: z.infer<typeof videoModelSchema>, durationSec: number): void {
-  if (model === 'V-LITE' && ![4, 6, 8].includes(durationSec)) {
-    throw new CommandUsageError('V-LITE --duration-sec must be 4, 6, or 8.');
+  if (model === 'V-STANDARD') {
+    guardDurationRange({ durationSec, maximum: 15, minimum: 1, model });
+    return;
   }
 
-  if (model === 'V-UGC' && ![4, 6, 8, 10].includes(durationSec)) {
-    throw new CommandUsageError('V-UGC --duration-sec must be 4, 6, 8, or 10.');
+  if (model === 'V-LITE') {
+    if (![4, 6, 8].includes(durationSec)) {
+      throw new CommandUsageError('V-LITE --duration-sec must be 4, 6, or 8.');
+    }
+    return;
+  }
+
+  if (model === 'V-UGC') {
+    if (![4, 6, 8, 10].includes(durationSec)) {
+      throw new CommandUsageError('V-UGC --duration-sec must be 4, 6, 8, or 10.');
+    }
+    return;
+  }
+
+  if (model === 'V-ULTRA') {
+    guardDurationRange({ durationSec, maximum: 15, minimum: 4, model });
+    return;
+  }
+
+  guardDurationRange({ durationSec, maximum: 15, minimum: 3, model });
+}
+
+function guardDurationRange(options: {
+  durationSec: number;
+  maximum: number;
+  minimum: number;
+  model: string;
+}): void {
+  if (options.durationSec < options.minimum || options.durationSec > options.maximum) {
+    throw new CommandUsageError(
+      `${options.model} --duration-sec must be from ${String(options.minimum)} to ${String(options.maximum)}.`,
+    );
   }
 }
 

@@ -91,6 +91,18 @@ ready, and terminal error states; a stable transcript schema with text and
 timed words or segments; and a polling identifier distinct from a mutable
 asset status. Until then, no CLI flag should claim transcription completion.
 
+## Video duration catalog
+
+`GET /api/v1/styles` currently reports `V-ULTRA` duration
+`{min:3,max:15}`, while the generation runtime rejects clips below 4 seconds.
+The estimate branch returns before runtime duration validation, so the server
+can also return a price for a 3-second `V-ULTRA` request that generation will
+reject.
+
+The CLI follows the executable generation limit and requires 4..15 seconds for
+both estimate and generation. The server should report the same minimum in the
+catalog and run model duration validation before returning an estimate.
+
 ## Local file upload
 
 The only public ingestion route is `POST /api/v1/media/imports`, which pulls a

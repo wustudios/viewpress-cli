@@ -46,14 +46,18 @@ All names above are 1..120 characters. Input assets must be ready and belong to
 the requested video or project as enforced by each route.
 
 The top-level video generation schema deliberately has broad reference caps.
-The server then applies model rules from `GET /styles`: `V-STANDARD`, `V-LITE`,
-`V-PRO`, `V-PRO-TRANSITION`, `V-ULTRA`, and `V-UGC` accept different input
-types and durations. Examples: `V-PRO-TRANSITION` requires start and end images;
-`V-LITE` start-to-end is fixed at 8 seconds; `V-PRO` references require 2..5
-images of one subject; only `V-ULTRA` accepts general reference video/audio;
-and `V-UGC` accepts 4/6/8/10 seconds. Clients should read the style catalog and
-must still handle a validation error. The request schema alone is not the full
-model contract.
+Executable duration rules are `V-STANDARD` 1..15 seconds, `V-LITE` 4/6/8,
+`V-PRO` and `V-PRO-TRANSITION` 3..15, `V-ULTRA` 4..15, and `V-UGC`
+4/6/8/10. Other model rules also apply: `V-PRO-TRANSITION` requires start and
+end images; `V-LITE` start-to-end is fixed at 8 seconds; `V-PRO` references
+require 2..5 images of one subject; and only `V-ULTRA` accepts general
+reference video/audio.
+
+The current `GET /styles` catalog incorrectly reports a 3-second minimum for
+`V-ULTRA`, while generation runtime validation requires 4 seconds. The server
+estimate branch also returns before that runtime check, so it can price a
+3-second request that generation rejects. The CLI follows the generation rule
+and rejects `V-ULTRA` below 4 seconds for both estimate and generation.
 
 ## Audio and rendering
 

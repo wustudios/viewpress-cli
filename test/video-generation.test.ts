@@ -45,7 +45,7 @@ describe('video generation commands', () => {
       '--model',
       'V-ULTRA',
       '--duration-sec',
-      '12',
+      '4',
       '--aspect-ratio',
       '16:9',
       '--no-audio',
@@ -66,33 +66,36 @@ describe('video generation commands', () => {
       '--json',
     ]);
     const generationRequest = requests.at(-1);
-    const estimated = await runCli([
-      'videos',
-      'estimate',
-      '--video-id',
-      'video-2',
-      '--name',
-      'Estimate',
-      '--prompt',
-      'Slow camera push',
-      '--model',
-      'V-LITE',
-      '--duration-sec',
-      '6',
-    ]);
-    const estimateRequest = requests.at(-1);
+    const estimateInputs = [
+      ['V-STANDARD', 1],
+      ['V-LITE', 4],
+      ['V-PRO', 3],
+      ['V-PRO-TRANSITION', 3],
+      ['V-ULTRA', 4],
+      ['V-UGC', 4],
+    ] as const;
+    const estimates: CliResult[] = [];
+    for (const [model, durationSec] of estimateInputs) {
+      estimates.push(await runCli([
+        'videos', 'estimate', '--video-id', 'video-2', '--name', 'Estimate',
+        '--prompt', 'Slow camera push', '--model', model, '--duration-sec', String(durationSec),
+      ]));
+    }
+    const estimateRequests = requests.slice(-estimateInputs.length);
 
     expect(generated).toEqual({
       exitCode: 0,
       stderr: '',
       stdout: '{"ok":true,"data":{"assetId":"asset-generated","status":"pending"}}\n',
     });
-    expect(estimated).toEqual({ exitCode: 0, stderr: '', stdout: 'Estimated cost: 14 credits.\n' });
+    expect(estimates.every((result) => (
+      result.exitCode === 0 && result.stderr === '' && result.stdout === 'Estimated cost: 14 credits.\n'
+    ))).toBeTrue();
     expect(generationRequest?.method).toBe('POST');
     expect(generationRequest?.url.pathname).toBe('/api/v1/videos/generations');
     expect(generationRequest?.body).toEqual({
       aspect_ratio: '16:9',
-      duration_sec: 12,
+      duration_sec: 4,
       end_image_asset_id: 'image-end',
       estimate_only: false,
       model: 'V-ULTRA',
@@ -106,17 +109,22 @@ describe('video generation commands', () => {
       video_id: 'video-1',
       with_audio: false,
     });
-    expect(estimateRequest?.url.pathname).toBe('/api/v1/videos/generations');
-    expect(estimateRequest?.body).toEqual({
-      aspect_ratio: '9:16',
-      duration_sec: 6,
-      estimate_only: true,
-      model: 'V-LITE',
-      name: 'Estimate',
-      prompt: 'Slow camera push',
-      video_id: 'video-2',
-      with_audio: true,
-    });
+    expect(estimateRequests.map((request) => ({
+      body: request.body,
+      pathname: request.url.pathname,
+    }))).toEqual(estimateInputs.map(([model, durationSec]) => ({
+      body: {
+        aspect_ratio: '9:16',
+        duration_sec: durationSec,
+        estimate_only: true,
+        model,
+        name: 'Estimate',
+        prompt: 'Slow camera push',
+        video_id: 'video-2',
+        with_audio: true,
+      },
+      pathname: '/api/v1/videos/generations',
+    })));
     const motionTransfer = await runCli(
       [
         'videos',
