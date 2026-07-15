@@ -2,6 +2,7 @@
 
 import packageJson from '../package.json' with { type: 'json' };
 import { runAuth } from './commands/run-auth.ts';
+import { runAudio } from './commands/run-audio.ts';
 import { runCredits } from './commands/run-credits.ts';
 import { runImages } from './commands/run-images.ts';
 import { runProjects } from './commands/run-projects.ts';
@@ -43,6 +44,10 @@ async function runCli(cliArguments: string[]): Promise<number> {
 
   if (command === 'images') {
     return runImages(cliArguments.slice(1));
+  }
+
+  if (command === 'speech' || command === 'music' || command === 'sfx') {
+    return runAudio(command, cliArguments.slice(1));
   }
 
   if (command === 'styles') {

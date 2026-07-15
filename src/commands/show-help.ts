@@ -11,6 +11,9 @@ Commands:
   styles list                  List generation styles and image models
   voices list                  List saved voices and built-in presets
   images generate|edit         Generate or edit images
+  speech generate              Generate speech audio
+  music generate               Generate music
+  sfx generate                 Generate sound effects
 
 Options:
   -V, --version  Show the installed version
