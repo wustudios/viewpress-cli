@@ -29,7 +29,7 @@ interface MockAsset {
   name: string;
   previewUrl: string;
   progress: number;
-  status: 'error' | 'ready' | 'running';
+  status: string;
   url: string | undefined;
   width: number;
 }
@@ -218,7 +218,7 @@ function getAssetForPath(pathname: string): ReturnType<typeof getAssetResponse> 
   if (pathname.endsWith('/asset-wait')) {
     waitRequestCount += 1;
     return waitRequestCount === 1
-      ? { ...getAssetResponse('asset-wait'), status: 'running', url: undefined, progress: 40 }
+      ? { ...getAssetResponse('asset-wait'), status: 'processing', url: undefined, progress: 40 }
       : getAssetResponse('asset-wait');
   }
   if (pathname.endsWith('/asset-error')) {

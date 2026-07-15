@@ -227,11 +227,11 @@ Asset response `kind` is any server string, including `slideshow`. Only the
 `assets list --kind` filter is restricted to the six values shown above.
 
 `assets wait` succeeds only at `ready`. It fails at `error`,
-`validation_error`, or `canceled`, and times out with exit `4`. Downloads use
-the server asset URL without adding the API key. They require HTTPS, except for
-local test loopback URLs. File downloads use a temporary file and rename only
-after the stream finishes. `--output -` writes raw bytes to stdout and cannot
-be combined with JSON output.
+`validation_error`, or `canceled`, continues polling other server status
+strings, and times out with exit `4`. Downloads use the server asset URL without
+adding the API key. They require HTTPS, except for local test loopback URLs.
+File downloads use a temporary file and rename only after the stream finishes.
+`--output -` writes raw bytes to stdout and cannot be combined with JSON output.
 
 ## Social
 

@@ -9,12 +9,11 @@ import { CommandUsageError } from './command-usage-error.ts';
 import { downloadAsset } from './download-asset.ts';
 
 const assetKindSchema = z.enum(['image', 'video', 'audio', 'sfx', 'music', 'render']);
-const assetStatusSchema = z.enum(['pending', 'running', 'ready', 'error', 'validation_error', 'canceled']);
 const assetSchema = z.object({
   id: z.string(),
   name: z.string().optional(),
   kind: z.string(),
-  status: assetStatusSchema,
+  status: z.string(),
   url: z.string().optional(),
   previewUrl: z.string().optional(),
   mimeType: z.string().optional(),
@@ -205,7 +204,7 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
       writeAsset(asset, options.json);
       return;
     }
-    if (asset.status !== 'pending' && asset.status !== 'running') {
+    if (asset.status === 'error' || asset.status === 'validation_error' || asset.status === 'canceled') {
       throw new CliError({
         exitCode: 1,
         message: `Asset ${asset.id} ended with status ${asset.status}${asset.error ? `: ${asset.error}` : '.'}`,
