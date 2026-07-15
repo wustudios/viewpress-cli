@@ -5,7 +5,7 @@ import { getConfig } from '../config/get-config.ts';
 interface GetApiResponseArguments<ResponseData> {
   body?: unknown;
   fetchRequest?: typeof fetch;
-  method: 'GET' | 'POST';
+  method: 'DELETE' | 'GET' | 'POST';
   path: string;
   query?: URLSearchParams;
   schema: z.ZodType<ResponseData>;
@@ -67,6 +67,10 @@ async function sendRequest<ResponseData>(
 }
 
 async function getResponseValue(response: Response): Promise<unknown> {
+  if (response.status === 204) {
+    return undefined;
+  }
+
   try {
     return await response.json();
   } catch {
