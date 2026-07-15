@@ -116,18 +116,21 @@ that does not expose the `vp_` key, an integrity check, and an idempotent
 completion operation returning the same ready public asset shape as media
 import. Server-side limits must be explicit before a command is added.
 
-## Social account correlation
+## Social account connection status
 
-Social account connection creation correctly requires `project_id`. Social post
-creation accepts `asset_id`, `platform`, and `connection_id` but no project id;
-the server must correlate ownership and platform internally. The public list
-surface can list accounts by project, but it offers no direct lookup for a
-connection id and no endpoint that explains which project/video mismatch caused
-a schedule failure.
+`POST /api/v1/social/accounts/connections` returns only a browser URL and
+instructions. The account row is created asynchronously after provider approval
+and callback. The response has no attempt id, and v1 has no attempt-status
+endpoint or durable callback-error result. The CLI can only return the URL. A
+caller must compare or poll `GET /api/v1/social/accounts?project_id=...` without
+a reliable way to correlate a new account or distinguish pending, denial,
+expiry, or callback failure.
 
-The CLI sends the existing contract as-is. Better agent behavior would need a
-stable connection lookup or structured mismatch details. The client must not
-guess project ownership from ids.
+A complete contract should return an opaque `connection_attempt_id` from
+creation. An account-scoped status endpoint should expose `pending`,
+`connected`, `denied`, `expired`, or `error`. A connected result should identify
+the new connection, and callback failures should remain queryable through the
+attempt instead of existing only in browser redirects.
 
 ## Pagination
 

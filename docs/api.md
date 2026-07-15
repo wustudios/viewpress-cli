@@ -109,7 +109,7 @@ started.
 | Operation | Request and defaults | Success response |
 | --- | --- | --- |
 | `GET /social/accounts?project_id=...` | `project_id` required. | HTTP 200 `{accounts:[{id,platform,username?,displayName?,disabled?,connectedAt}]}`. Platform is TikTok, Instagram, or YouTube. |
-| `POST /social/accounts/connections` | `{project_id,platform}`; both required. | HTTP 200 `{url,instructions}`. The URL starts the platform account connection, not CLI authentication. |
+| `POST /social/accounts/connections` | `{project_id,platform}`; both required. | HTTP 200 `{url,instructions}`. The URL starts the browser account connection, not CLI authentication. |
 | `POST /social/posts` | `{asset_id,platform,connection_id,publish_at?,caption?,options?}`. `publish_at` is an ISO 8601 UTC datetime ending in `Z` and no more than one year ahead; omitted means now; caption max 2,200. | HTTP 200 `{postId,state:"scheduled",publishAt}`; `publishAt` is epoch milliseconds. |
 | `GET /social/posts?project_id=...&limit=...` | `project_id` required; limit 1..200, default 50. | HTTP 200 `{posts:[public social post]}`. |
 | `GET /social/posts/{postId}` | Path id required. | HTTP 200 public social post. |
@@ -125,6 +125,12 @@ YouTube `options` may contain `title` (max 100), `privacy_status` (default
 may contain `privacy_level`, `title` (max 2,200), `disable_comment`,
 `disable_duet`, `disable_stitch`, `brand_content_toggle`,
 `brand_organic_toggle`, and `is_aigc`. Instagram has no defined option fields.
+
+The account connection response only starts the browser flow. The account row
+appears asynchronously after provider approval and callback. V1 returns no
+attempt id and exposes no connection-attempt status or durable callback error.
+The CLI can only return the URL; callers must compare or poll the account list
+without reliable correlation.
 
 The create-post request contains no `project_id`. The server correlates the
 asset and social connection internally and rejects invalid ownership or
