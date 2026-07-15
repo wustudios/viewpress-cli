@@ -256,6 +256,9 @@ CLI sends YouTube fields under `options.youtube` and TikTok fields under
 `brand_organic_toggle`, and `is_aigc`. Instagram currently accepts an empty
 object only.
 
+`--publish-at` accepts an ISO datetime with a UTC or numeric offset. The CLI
+normalizes it to the UTC `Z` form required by the API.
+
 `social posts wait` succeeds at `published`, fails at `failed` or `canceled`,
 and times out with exit `4`.
 

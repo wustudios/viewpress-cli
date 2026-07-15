@@ -106,7 +106,7 @@ started.
 | --- | --- | --- |
 | `GET /social/accounts?project_id=...` | `project_id` required. | HTTP 200 `{accounts:[{id,platform,username?,displayName?,disabled?,connectedAt}]}`. Platform is TikTok, Instagram, or YouTube. |
 | `POST /social/accounts/connections` | `{project_id,platform}`; both required. | HTTP 200 `{url,instructions}`. The URL starts the platform account connection, not CLI authentication. |
-| `POST /social/posts` | `{asset_id,platform,connection_id,publish_at?,caption?,options?}`. `publish_at` is ISO 8601 and no more than one year ahead; omitted means now; caption max 2,200. | HTTP 200 `{postId,state:"scheduled",publishAt}`; `publishAt` is epoch milliseconds. |
+| `POST /social/posts` | `{asset_id,platform,connection_id,publish_at?,caption?,options?}`. `publish_at` is an ISO 8601 UTC datetime ending in `Z` and no more than one year ahead; omitted means now; caption max 2,200. | HTTP 200 `{postId,state:"scheduled",publishAt}`; `publishAt` is epoch milliseconds. |
 | `GET /social/posts?project_id=...&limit=...` | `project_id` required; limit 1..200, default 50. | HTTP 200 `{posts:[public social post]}`. |
 | `GET /social/posts/{postId}` | Path id required. | HTTP 200 public social post. |
 | `DELETE /social/posts/{postId}` | Path id required; only a cancelable scheduled post succeeds. | HTTP 204 with no body. |

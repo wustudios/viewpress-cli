@@ -130,7 +130,7 @@ describe('social commands', () => {
             youtube: { made_for_kids: false, privacy_status: 'public', tags: ['demo'], title: 'Launch' },
           },
           platform: 'youtube',
-          publish_at: '2026-07-20T09:00:00+09:00',
+          publish_at: '2026-07-20T00:00:00.000Z',
         },
         method: 'POST',
         pathname: '/api/v1/social/posts',

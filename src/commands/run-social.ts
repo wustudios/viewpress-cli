@@ -305,10 +305,7 @@ async function getCreatePostOptions(input: CreatePostInput): Promise<{
   if (input.caption !== undefined && !caption.success) {
     throw new CommandUsageError('Social posts --caption must be at most 2200 characters.');
   }
-  const publishAt = publishAtSchema.safeParse(input.publishAt);
-  if (input.publishAt !== undefined && !publishAt.success) {
-    throw new CommandUsageError('Social posts --publish-at must be an ISO date and time with an offset.');
-  }
+  const publishAt = getPublishAt(input.publishAt);
   const platformOptions = await readPlatformOptions(input.optionsFile, platform.data);
   return {
     assetId: input.assetId,
@@ -317,8 +314,19 @@ async function getCreatePostOptions(input: CreatePostInput): Promise<{
     json: input.json,
     platform: platform.data,
     platformOptions,
-    publishAt: publishAt.data,
+    publishAt,
   };
+}
+
+function getPublishAt(value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const publishAt = publishAtSchema.safeParse(value);
+  if (!publishAt.success) {
+    throw new CommandUsageError('Social posts --publish-at must be an ISO date and time with an offset.');
+  }
+  return new Date(publishAt.data).toISOString();
 }
 
 async function readPlatformOptions(
