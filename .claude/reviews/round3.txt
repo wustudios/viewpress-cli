@@ -1,0 +1,95 @@
+# REVIEW ROUND 3
+
+HEAD: 9fddeb4aabe936cdd6f4be950dd714b9a5c6b366
+
+## Scorecard
+
+1. Product and API completeness — 8/10: All 34 v1 operations have commands, but media import lacks its claimed public-host guarantee and estimates can succeed for impossible generation requests.
+
+2. Command ergonomics and human UX — 9/10: Round 2 help/version defects are fixed, but users can receive misleading estimates for inputs generation rejects.
+3. Automation and agent contract — 9/10: JSON and wait behavior are stable, but truncated raw downloads return exit 1 instead of the documented transport exit 5.
+4. Browser auth, security, and config — 7/10: Browser authentication remains sound, but import SSRF, redirect transport downgrade, and non-HTTP loopback configuration defects remain.
+5. Correctness and boundary validation — 8/10: Response schemas now match public contracts, but download redirects, API URL protocols, and estimate inputs are not fully validated.
+6. Code quality and house conventions — 9/10: Strict TypeScript and command-local structure pass; the expanded global parser materially exceeds the short-function rule.
+7. Unit/integration test quality with no live API or database I/O — 9/10: The suite remains lean and dispatch-oriented, but existing asset security tests miss redirect and raw-stream failures.
+8. API docs, README, build, and distribution — 8/10: Every build and release gate passes, but media-import security and estimate semantics are documented more strongly than the server provides.
+
+9. Async behavior, failures, and cross-platform robustness — 8/10: Wait deadlines pass, but failures after download headers are classified inconsistently.
+10. Repository hygiene and atomic commit quality — 10/10: HEAD is clean, review history is durable, commits are atomic with reasons, configured identity is used, and no AI attribution exists.
+
+## Findings
+
+### High — Media import does not enforce the documented public-host boundary
+
+- WHAT: The CLI rejects literal private URLs, but the server validates only the original hostname string and then follows redirects automatically. It does not validate resolved IP addresses or redirect destinations. A public hostname resolving to a private address, or redirecting to one, can reach internal services. The CLI documentation currently claims these hosts are rejected.
+
+- WHERE: src/commands/run-media.ts:149, docs/commands.md:187, docs/api.md:70, and the production /Users/mike/Code/viewpress/src/app/api/v1/media/imports/route.ts:48, whose validator is at /Users/mike/Code/viewpress/src/app/api/v1/media/imports/route.ts:112.
+
+- WHAT GOOD LOOKS LIKE: Under the OWASP SSRF Prevention rule, the ViewPress server must resolve and reject non-public addresses and manually validate every redirect destination before connecting. Record this as an explicit server contract gap in docs/server-contracts.md until implemented; do not claim public-host enforcement meanwhile.
+
+### High — Asset download redirects bypass the secure URL validator
+
+- WHAT: Only the original asset URL is checked. fetch() then follows redirects without validating their protocols, origins, or embedded credentials. A validated HTTPS asset URL can therefore redirect to plaintext HTTP. A safe loopback probe confirmed that a destination rejected as a direct URL succeeds through a redirect.
+
+- WHERE: src/commands/download-asset.ts:28 validates only the initial URL, while src/commands/download-asset.ts:73 follows redirects implicitly. The existing security coverage ends at test/assets.test.ts:145.
+
+- WHAT GOOD LOOKS LIKE: Under the documented HTTPS download invariant, use manual redirects with a small hop limit and apply the same protocol and credential validation before every request. Extend the existing external-download security test rather than adding another standalone test.
+
+### Medium — Raw and post-header download failures violate the exit-code contract
+
+- WHAT: A truncated --output - download writes its partial bytes and then exits 1, although a closed socket is a transport failure documented as exit 5. File streaming catches the failure, but body timeouts after headers are also mapped to transport 5 rather than timeout 4.
+
+- WHERE: The raw path has no classification wrapper at src/commands/download-asset.ts:12; file streaming maps post-header errors at src/commands/download-asset.ts:49; timeout classification covers only the initial fetch at src/commands/download-asset.ts:68. The exit contract is documented in README.md:108.
+
+- WHAT GOOD LOOKS LIKE: Under the stable exit-code contract, classify failures throughout body consumption: timeout is 4, socket/stream interruption is 5, and file downloads still remove temporary files. Fold raw-stream coverage into the existing truncated-download test.
+
+### Medium — Video estimates bypass generation validity and ownership checks
+
+- WHAT: The server returns an estimate before checking that the video exists or belongs to the caller and before applying model-specific rules. The CLI mirrors duration rules but not rules such as required transition frames, forbidden reference types, and per-model reference caps. It can therefore report a price for a request that generation immediately rejects.
+
+- WHERE: The server returns early at the /Users/mike/Code/viewpress/src/app/api/v1/videos/generations/route.ts:69, before validation beginning at /Users/mike/Code/viewpress/src/app/api/v1/videos/generations/route.ts:74. CLI validation at src/commands/run-video-generation.ts:270 covers only common fields, duration, and broad counts. Documentation understates the gap at docs/api.md:48.
+
+- WHAT GOOD LOOKS LIKE: Under the same-input estimate contract, run ownership and pure model/input validation before returning an estimate. If estimates intentionally accept incomplete inputs, define a separate request contract and document it. Record the current server limitation explicitly until resolved.
+
+### Medium — The loopback API exception permits non-HTTP protocols
+
+- WHAT: The URL guard accepts any protocol when the hostname is localhost or 127.0.0.1. ftp://localhost/api/v1 was accepted and displayed as the active server, despite documentation promising HTTPS with only a localhost development exception.
+
+- WHERE: src/config/get-api-url.ts:19 checks the hostname but not that the exception uses http:. The documented rule is docs/commands.md:12.
+- WHAT GOOD LOOKS LIKE: Under the HTTPS with HTTP-loopback-only exception, accept https: everywhere and http: only for supported loopback hosts. Reject FTP, file, WebSocket, and other schemes. Add the assertion to the existing config security coverage without creating a parser microtest.
+
+### Low — Global option parsing remains materially long
+
+- WHAT: parseGlobalArguments now spans roughly 59 lines and combines iteration, mutable parsing state, option-value extraction, help/version normalization, and result construction.
+- WHERE: src/cli/parse-global-arguments.ts:15.
+- WHAT GOOD LOOKS LIKE: Under the house functions stay under ~25 lines rule, use the same command-local input/reader/result pattern used by the recently split parsers. Keep one export and do not introduce a shared parser framework.
+
+## Exact gates run
+
+- Read .claude/reviewer.md, all prior verbatim reviews, ViewPress AGENTS.md, CLAUDE.md, and Convex AI guidelines.
+- Inspected the current ViewPress v1 inventory: 30 route files and 34 HTTP handlers.
+- npm run check — PASS:
+    - TypeScript — PASS
+    - ESLint — PASS
+    - Bun tests — 13 passed, 0 failed, 93 expectations
+    - Documentation check — PASS
+
+- npm run build:native — PASS.
+- npm run smoke — PASS.
+- npm run build — PASS for all five targets.
+- npm run release:checksums — PASS.
+- shasum -a 256 -c SHA256SUMS from dist/ — PASS for all five binaries.
+- file dist/viewpress-* — PASS: Mach-O arm64/x64, ELF arm64/x64, and PE32+ x64.
+- Compiled help/version probes — PASS for leaf --help and --version.
+- Compiled auth login --json probe — PASS with documented exit 2.
+- Conflicting speech voice-source probe — PASS with usage exit 2.
+- Non-HTTP loopback API probe — reproduced acceptance of ftp://localhost.
+- Local redirect download probe — reproduced redirect validation bypass.
+- Local truncated raw download probe — reproduced partial stdout and incorrect exit 1.
+- git diff --check — PASS.
+- git status --short --untracked-files=all — clean.
+- Configured identity and AI-attribution scan — PASS.
+- git fsck --no-progress --no-dangling — PASS.
+- No live ViewPress API calls or database access were made.
+
+FAIL
