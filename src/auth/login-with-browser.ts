@@ -2,6 +2,7 @@ import { createBrowserLoginSession } from './create-browser-login-session.ts';
 import type { FetchRequest } from './browser-login-session.ts';
 import { openBrowser } from './open-browser.ts';
 import { pollBrowserLoginSession } from './poll-browser-login-session.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 
 export interface LoginWithBrowserOptions {
   apiUrl: string;
@@ -10,11 +11,17 @@ export interface LoginWithBrowserOptions {
   showVerificationUrl?: (url: string) => void;
   wait?: (delayMs: number) => Promise<void>;
   getTimeMs?: () => number;
+  requestTimeoutMs?: number;
 }
 
 export async function loginWithBrowser(options: LoginWithBrowserOptions): Promise<string> {
   const fetchRequest = options.fetchRequest ?? fetch;
-  const session = await createBrowserLoginSession(options.apiUrl, fetchRequest);
+  const requestTimeoutMs = options.requestTimeoutMs ?? getRuntimeOptions().timeoutSec * 1_000;
+  const session = await createBrowserLoginSession({
+    apiUrl: options.apiUrl,
+    fetchRequest,
+    requestTimeoutMs,
+  });
   const showVerificationUrl = options.showVerificationUrl ?? showUrl;
   const openUrl = options.openUrl ?? openBrowser;
 
@@ -25,6 +32,7 @@ export async function loginWithBrowser(options: LoginWithBrowserOptions): Promis
     apiUrl: options.apiUrl,
     fetchRequest,
     getTimeMs: options.getTimeMs ?? ((): number => Date.now()),
+    requestTimeoutMs,
     session,
     wait: options.wait ?? wait,
   });

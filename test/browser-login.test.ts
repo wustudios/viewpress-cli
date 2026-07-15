@@ -5,7 +5,7 @@ import { loginWithBrowser } from '../src/auth/login-with-browser.ts';
 
 describe('loginWithBrowser', () => {
   test('keeps the polling token in the authorization header', async () => {
-    const requests: { headers: Headers; url: string }[] = [];
+    const requests: { headers: Headers; signal: AbortSignal | null; url: string }[] = [];
     const responses = [
       Response.json({
         expires_at: '2099-01-01T00:00:00.000Z',
@@ -42,6 +42,7 @@ describe('loginWithBrowser', () => {
     expect(requests[1]?.headers.get('Authorization')).toBe('Bearer secret-poll-token');
     expect(requests[1]?.url).not.toContain('secret-poll-token');
     expect(requests[2]?.headers.get('Authorization')).toBe('Bearer secret-poll-token');
+    expect(requests.every((request) => request.signal instanceof AbortSignal)).toBeTrue();
 
     const untrustedFetch = getMockFetch(
       [
@@ -66,11 +67,15 @@ describe('loginWithBrowser', () => {
 
 function getMockFetch(
   responses: Response[],
-  requests: { headers: Headers; url: string }[],
+  requests: { headers: Headers; signal: AbortSignal | null; url: string }[],
 ): FetchRequest {
   return (input, init) => {
     const response = responses[requests.length];
-    requests.push({ headers: new Headers(init?.headers), url: getRequestUrl(input) });
+    requests.push({
+      headers: new Headers(init?.headers),
+      signal: init?.signal ?? null,
+      url: getRequestUrl(input),
+    });
 
     if (!response) {
       throw new Error('Unexpected request');

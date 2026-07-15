@@ -1,14 +1,20 @@
 import type { BrowserLoginSession, FetchRequest } from './browser-login-session.ts';
 
+interface CreateBrowserLoginSessionOptions {
+  apiUrl: string;
+  fetchRequest: FetchRequest;
+  requestTimeoutMs: number;
+}
+
 export async function createBrowserLoginSession(
-  apiUrl: string,
-  fetchRequest: FetchRequest,
+  options: CreateBrowserLoginSessionOptions,
 ): Promise<BrowserLoginSession> {
-  const endpoint = `${new URL(apiUrl).origin}/api/cli/auth/sessions`;
-  const response = await fetchRequest(endpoint, {
+  const endpoint = `${new URL(options.apiUrl).origin}/api/cli/auth/sessions`;
+  const response = await options.fetchRequest(endpoint, {
     cache: 'no-store',
     headers: { Accept: 'application/json' },
     method: 'POST',
+    signal: AbortSignal.timeout(Math.max(1, Math.ceil(options.requestTimeoutMs))),
   });
 
   if (response.status === 404 || response.status === 405 || response.status === 501) {
@@ -21,7 +27,7 @@ export async function createBrowserLoginSession(
     throw new Error(`Could not start browser login. The server returned ${String(response.status)}.`);
   }
 
-  return parseSession(await response.json(), apiUrl);
+  return parseSession(await response.json(), options.apiUrl);
 }
 
 function parseSession(value: unknown, apiUrl: string): BrowserLoginSession {

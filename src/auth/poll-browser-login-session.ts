@@ -7,11 +7,14 @@ interface PollBrowserLoginOptions {
   session: BrowserLoginSession;
   wait: (delayMs: number) => Promise<void>;
   getTimeMs: () => number;
+  requestTimeoutMs: number;
 }
 
 export async function pollBrowserLoginSession(options: PollBrowserLoginOptions): Promise<string> {
-  while (options.getTimeMs() < options.session.expiresAtMs) {
-    await options.wait(options.session.intervalSec * 1_000);
+  while (getRemainingSessionMs(options) > 0) {
+    const intervalMs = options.session.intervalSec * 1_000;
+    await options.wait(Math.min(intervalMs, getRemainingSessionMs(options)));
+    guardSessionActive(options);
     const response = await pollOnce(options);
 
     if (response === null) {
@@ -26,6 +29,8 @@ export async function pollBrowserLoginSession(options: PollBrowserLoginOptions):
 
 async function pollOnce(options: PollBrowserLoginOptions): Promise<string | null> {
   const endpoint = getPollEndpoint(options.apiUrl, options.session.sessionId);
+  guardSessionActive(options);
+  const requestTimeoutMs = Math.min(options.requestTimeoutMs, getRemainingSessionMs(options));
   const response = await options.fetchRequest(endpoint, {
     cache: 'no-store',
     headers: {
@@ -34,6 +39,7 @@ async function pollOnce(options: PollBrowserLoginOptions): Promise<string | null
       'Cache-Control': 'no-store',
     },
     method: 'POST',
+    signal: AbortSignal.timeout(Math.max(1, Math.ceil(requestTimeoutMs))),
   });
 
   if (response.status === 202) {
@@ -42,6 +48,16 @@ async function pollOnce(options: PollBrowserLoginOptions): Promise<string | null
 
   const value: unknown = await response.json();
   return getApprovedApiKey(value, response.status);
+}
+
+function getRemainingSessionMs(options: PollBrowserLoginOptions): number {
+  return Math.max(0, options.session.expiresAtMs - options.getTimeMs());
+}
+
+function guardSessionActive(options: PollBrowserLoginOptions): void {
+  if (getRemainingSessionMs(options) === 0) {
+    throw new Error('Browser login expired. Start it again.');
+  }
 }
 
 function getPollEndpoint(apiUrl: string, sessionId: string): string {
