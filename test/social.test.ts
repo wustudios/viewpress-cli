@@ -70,7 +70,7 @@ describe('social commands', () => {
       ok: true,
       data: {
         instructions: 'Open this URL to connect YouTube.',
-        url: 'https://viewpress.ai/connect/session-1',
+        url: 'connect/session-1',
       },
     });
     expect(requests.slice(0, 2)).toEqual([
@@ -110,7 +110,7 @@ describe('social commands', () => {
       ok: true,
       data: {
         ...getPost('post-wait'),
-        platformPostUrl: 'https://youtube.com/shorts/post-wait',
+        platformPostUrl: 'youtube-post-wait',
         publishedAt: 1_753_056_100_000,
         state: 'published',
       },
@@ -164,7 +164,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (url.pathname === '/api/v1/social/accounts/connections') {
     return Response.json({
       instructions: 'Open this URL to connect YouTube.',
-      url: 'https://viewpress.ai/connect/session-1',
+      url: 'connect/session-1',
     });
   }
   if (url.pathname === '/api/v1/social/posts' && request.method === 'POST') {
@@ -177,7 +177,7 @@ async function handleRequest(request: Request): Promise<Response> {
     waitRequestCount += 1;
     return Response.json(waitRequestCount === 1 ? getPost('post-wait') : {
       ...getPost('post-wait'),
-      platformPostUrl: 'https://youtube.com/shorts/post-wait',
+      platformPostUrl: 'youtube-post-wait',
       publishedAt: 1_753_056_100_000,
       state: 'published',
     });

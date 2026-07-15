@@ -19,7 +19,7 @@ const accountSchema = z.object({
   connectedAt: z.number(),
 });
 const accountsResponseSchema = z.object({ accounts: z.array(accountSchema) });
-const connectionResponseSchema = z.object({ url: z.url(), instructions: z.string() });
+const connectionResponseSchema = z.object({ url: z.string(), instructions: z.string() });
 const postStateSchema = z.enum(['draft', 'scheduled', 'publishing', 'published', 'failed', 'canceled']);
 const analyticsSchema = z.object({
   views: z.number().optional(),
@@ -37,7 +37,7 @@ const postSchema = z.object({
   publishAt: z.number(),
   publishedAt: z.number().optional(),
   caption: z.string().optional(),
-  platformPostUrl: z.url().optional(),
+  platformPostUrl: z.string().optional(),
   errorMessage: z.string().optional(),
   analytics: analyticsSchema.optional(),
 });
