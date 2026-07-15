@@ -31,6 +31,10 @@ export async function loginWithBrowser(options: LoginWithBrowserOptions): Promis
 }
 
 function showUrl(url: string): void {
+  if (!process.stderr.isTTY) {
+    return;
+  }
+
   process.stderr.write(`Open this URL to sign in:\n${url}\n`);
 }
 

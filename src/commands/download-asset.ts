@@ -4,13 +4,16 @@ import { basename, dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
+import { CliError } from '../cli/cli-error.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
+import { getExitCode } from '../output/get-exit-code.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
 export async function downloadAsset(urlValue: string, output: string, force: boolean): Promise<void> {
   const url = getDownloadUrl(urlValue);
 
   if (output === '-') {
-    const response = await fetch(url);
+    const response = await fetchDownload(url);
     await writeDownloadToStdout(response);
     return;
   }
@@ -47,13 +50,38 @@ async function writeDownloadToFile(url: URL, output: string): Promise<void> {
   const temporaryPath = join(dirname(output), `.${basename(output)}.${crypto.randomUUID()}.tmp`);
 
   try {
-    const response = await fetch(url);
+    const response = await fetchDownload(url);
     const body = getDownloadBody(response);
     await pipeline(Readable.fromWeb(body), createWriteStream(temporaryPath, { flags: 'wx' }));
     await rename(temporaryPath, output);
   } catch (error) {
     await rm(temporaryPath, { force: true });
-    throw error;
+    if (error instanceof CliError || getExitCode(error) === 6) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : 'The asset download was interrupted.';
+    throw new CliError({ exitCode: 5, message, type: 'transport_error' });
+  }
+}
+
+async function fetchDownload(url: URL): Promise<Response> {
+  const timeoutSec = getRuntimeOptions().timeoutSec;
+  const signal = AbortSignal.timeout(timeoutSec * 1_000);
+
+  try {
+    return await fetch(url, { signal });
+  } catch (error) {
+    if (signal.aborted) {
+      throw new CliError({
+        exitCode: 4,
+        message: `Request timed out after ${String(timeoutSec)} seconds.`,
+        type: 'timeout_error',
+      });
+    }
+
+    const message = error instanceof Error ? error.message : 'Could not download the asset.';
+    throw new CliError({ exitCode: 5, message, type: 'transport_error' });
   }
 }
 

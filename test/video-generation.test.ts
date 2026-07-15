@@ -85,7 +85,7 @@ describe('video generation commands', () => {
     expect(generated).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: '{"assetId":"asset-generated","status":"pending"}\n',
+      stdout: '{"ok":true,"data":{"assetId":"asset-generated","status":"pending"}}\n',
     });
     expect(estimated).toEqual({ exitCode: 0, stderr: '', stdout: 'Estimated cost: 14 credits.\n' });
     expect(generationRequest?.method).toBe('POST');
@@ -197,10 +197,10 @@ describe('video generation commands', () => {
     ]);
 
     expect(motionTransfer.stdout).toBe('Started video asset asset-motion (pending).\n');
-    expect(talkingImage.stdout).toBe('{"assetId":"asset-talking","status":"pending"}\n');
+    expect(talkingImage.stdout).toBe('{"ok":true,"data":{"assetId":"asset-talking","status":"pending"}}\n');
     expect(userGeneratedContentAd.stdout).toBe('Started video asset asset-ugc (pending).\n');
     expect(timelapse.stdout).toBe(
-      '{"assetId":"asset-timelapse","endFrameAssetId":"asset-end-frame","status":"pending"}\n',
+      '{"ok":true,"data":{"assetId":"asset-timelapse","endFrameAssetId":"asset-end-frame","status":"pending"}}\n',
     );
     expect(requests.slice(-4).map((request) => request.url.pathname)).toEqual([
       '/api/v1/videos/motion-transfers',

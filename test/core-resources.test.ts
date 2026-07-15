@@ -36,7 +36,10 @@ afterAll(async () => {
 
 describe('core resource commands', () => {
   test('uses every core resource command through authenticated requests', async () => {
-    const listed = await runCli(['projects', 'list', '--json']);
+    const listed = await runCli(
+      ['--json', '--api-url', `${server.url.href}api/v1`, 'projects', 'list'],
+      'https://ignored.example/api/v1',
+    );
     const created = await runCli(['projects', 'create', '--name', 'Launch', '--json']);
     const listedVideos = await runCli(['videos', 'list', '--project-id', 'project-1', '--json']);
     const createdVideo = await runCli([
@@ -48,7 +51,7 @@ describe('core resource commands', () => {
       'Demo',
       '--json',
     ]);
-    const credits = await runCli(['credits', 'get', '--json']);
+    const credits = await runCli(['credits', 'get', '--timeout', '2', '--json']);
     const styles = await runCli(['styles', 'list', '--json']);
     const voices = await runCli([
       'voices',
@@ -64,38 +67,43 @@ describe('core resource commands', () => {
       '--json',
     ]);
 
-    expect(listed.stdout).toBe('{"projects":[{"id":"project-1","name":"Main","createdAt":1000}]}\n');
-    expect(created.stdout).toBe('{"id":"project-2","name":"Launch"}\n');
+    expect(listed.stdout).toBe('{"ok":true,"data":{"projects":[{"id":"project-1","name":"Main","createdAt":1000}]}}\n');
+    expect(created.stdout).toBe('{"ok":true,"data":{"id":"project-2","name":"Launch"}}\n');
     expect(JSON.parse(listedVideos.stdout)).toEqual({
-      videos: [
-        {
-          createdAt: '2026-07-15T00:00:00.000Z',
-          id: 'video-1',
-          name: 'First',
-          url: 'https://viewpress.ai/videos/video-1',
-        },
-      ],
+      ok: true,
+      data: {
+        videos: [
+          {
+            createdAt: '2026-07-15T00:00:00.000Z',
+            id: 'video-1',
+            name: 'First',
+            url: 'https://viewpress.ai/videos/video-1',
+          },
+        ],
+      },
     });
     expect(JSON.parse(createdVideo.stdout)).toEqual({
-      id: 'video-2',
-      name: 'Demo',
-      url: 'https://viewpress.ai/videos/video-2',
+      ok: true,
+      data: { id: 'video-2', name: 'Demo', url: 'https://viewpress.ai/videos/video-2' },
     });
-    expect(JSON.parse(credits.stdout)).toEqual({ available: 8, held: 2, total: 10 });
-    expect(JSON.parse(styles.stdout)).toEqual(getStylesResponse());
+    expect(JSON.parse(credits.stdout)).toEqual({ ok: true, data: { available: 8, held: 2, total: 10 } });
+    expect(JSON.parse(styles.stdout)).toEqual({ ok: true, data: getStylesResponse() });
     expect(JSON.parse(voices.stdout)).toEqual({
-      presets: ['Wise_Woman'],
-      voices: [
-        {
-          age: 'adult',
-          description: 'Warm and clear',
-          gender: 'female',
-          id: 'voice-1',
-          language: 'en',
-          name: 'Calm',
-          type: 'cloned',
-        },
-      ],
+      ok: true,
+      data: {
+        presets: ['Wise_Woman'],
+        voices: [
+          {
+            age: 'adult',
+            description: 'Warm and clear',
+            gender: 'female',
+            id: 'voice-1',
+            language: 'en',
+            name: 'Calm',
+            type: 'cloned',
+          },
+        ],
+      },
     });
     expect(requests[0]?.headers.get('Authorization')).toBe('Bearer vp_test_key');
     expect(requests[1]?.body).toEqual({ name: 'Launch' });
@@ -193,13 +201,13 @@ function getStylesResponse(): unknown {
   };
 }
 
-async function runCli(arguments_: string[]): Promise<CliResult> {
+async function runCli(arguments_: string[], environmentApiUrl = `${server.url.href}api/v1`): Promise<CliResult> {
   const childProcess = Bun.spawn(['bun', 'run', 'src/cli.ts', ...arguments_], {
     cwd: new URL('..', import.meta.url).pathname,
     env: {
       ...process.env,
       VIEWPRESS_API_KEY: 'vp_test_key',
-      VIEWPRESS_API_URL: `${server.url.href}api/v1`,
+      VIEWPRESS_API_URL: environmentApiUrl,
       VIEWPRESS_CONFIG_DIR: configDirectory,
     },
     stderr: 'pipe',

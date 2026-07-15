@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { CliError } from '../cli/cli-error.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 import { downloadAsset } from './download-asset.ts';
 
@@ -63,9 +66,7 @@ export async function runAssets(arguments_: string[]): Promise<number> {
     await runAssetCommand(command, arguments_.slice(1));
     return 0;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Assets command failed.';
-    process.stderr.write(`Error: ${message}\n`);
-    return error instanceof CommandUsageError ? 2 : 1;
+    return writeError(error, 'Assets command failed.');
   }
 }
 
@@ -205,17 +206,21 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
       return;
     }
     if (asset.status !== 'pending' && asset.status !== 'running') {
-      throw new Error(`Asset ${asset.id} ended with status ${asset.status}${asset.error ? `: ${asset.error}` : '.'}`);
+      throw new CliError({
+        exitCode: 1,
+        message: `Asset ${asset.id} ended with status ${asset.status}${asset.error ? `: ${asset.error}` : '.'}`,
+        type: 'terminal_error',
+      });
     }
     writeWaitNotice(asset, options.json);
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) {
-      throw new Error(`Timed out waiting for asset ${asset.id} after ${String(options.waitTimeoutSec)} seconds.`);
+      throwWaitTimeout(asset.id, options.waitTimeoutSec);
     }
     await Bun.sleep(Math.min(options.pollIntervalSec * 1000, remainingMs));
   }
 
-  throw new Error(`Timed out waiting for asset ${options.assetId} after ${String(options.waitTimeoutSec)} seconds.`);
+  throwWaitTimeout(options.assetId, options.waitTimeoutSec);
 }
 
 function getWaitOptions(arguments_: string[]): {
@@ -261,6 +266,9 @@ function getWaitOptions(arguments_: string[]): {
 
 async function downloadAssetCommand(arguments_: string[]): Promise<void> {
   const options = getDownloadOptions(arguments_);
+  if (getRuntimeOptions().json && options.output === '-') {
+    throw new CommandUsageError('JSON output cannot be combined with assets download --output -.');
+  }
   const asset = await getAsset(options.assetId);
 
   if (asset.status !== 'ready' || !asset.url) {
@@ -269,6 +277,10 @@ async function downloadAssetCommand(arguments_: string[]): Promise<void> {
 
   await downloadAsset(asset.url, options.output, options.force);
   if (options.output !== '-') {
+    if (getRuntimeOptions().json) {
+      writeJson({ assetId: asset.id, output: options.output });
+      return;
+    }
     process.stdout.write(`Downloaded asset ${asset.id} to ${options.output}.\n`);
   }
 }
@@ -281,6 +293,10 @@ function getDownloadOptions(arguments_: string[]): { assetId: string; force: boo
 
   for (let index = 1; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
+    if (argument === '--json') {
+      guardNewOption(seen, 'json', argument);
+      continue;
+    }
     if (argument === '--force') {
       guardNewOption(seen, 'force', argument);
       force = true;
@@ -652,11 +668,19 @@ function writeAssetLine(asset: z.infer<typeof assetSchema>): void {
 }
 
 function writeWaitNotice(asset: z.infer<typeof assetSchema>, json: boolean): void {
-  if (json || !process.stderr.isTTY) {
+  if (json || getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
     return;
   }
   const progress = asset.progress === undefined ? '' : ` (${String(asset.progress)}%)`;
   process.stderr.write(`Waiting for asset ${asset.id}: ${asset.status}${progress}.\n`);
+}
+
+function throwWaitTimeout(assetId: string, waitTimeoutSec: number): never {
+  throw new CliError({
+    exitCode: 4,
+    message: `Timed out waiting for asset ${assetId} after ${String(waitTimeoutSec)} seconds.`,
+    type: 'timeout_error',
+  });
 }
 
 function writeTransformResponse(

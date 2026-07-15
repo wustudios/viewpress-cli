@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 import { runVideoGeneration } from './run-video-generation.ts';
 import { runVideoStyleTool } from './run-video-style-tool.ts';
@@ -60,7 +61,7 @@ export async function runVideos(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown videos command: ${command}`);
   } catch (error) {
-    return writeError(error);
+    return writeError(error, 'Videos command failed.');
   }
 }
 
@@ -170,10 +171,4 @@ function getValidatedVideoOptions(options: {
 
 function showVideosHelp(): void {
   process.stdout.write(`Usage: viewpress videos <command>\n\nCommands:\n  list --project-id <id> [--json]\n  create --project-id <id> --name <name> [--json]\n  generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n  estimate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n  motion-transfer --video-id <id> --name <name> --image-asset-id <id> --motion-video-asset-id <id> [options]\n  talking-image --video-id <id> --name <name> --image-asset-id <id> --audio-asset-id <id> [options]\n  ugc-ad --video-id <id> --name <name> --subject-description <text> --dialogue <text> --reference-image-asset-id <id>... --duration-sec <4|6|8|10> [options]\n  timelapse-scene --video-id <id> --name <name> --step-description <text> --start-image-asset-id <id> [options]\n\nGenerate and estimate options:\n  --aspect-ratio <1:1|9:16|16:9>       Default: 9:16\n  --with-audio | --no-audio            Default: --with-audio\n  --start-image-asset-id <id>\n  --end-image-asset-id <id>\n  --reference-image-asset-id <id>       Repeat up to 9 times\n  --reference-video-asset-id <id>       Repeat up to 3 times\n  --reference-audio-asset-id <id>       Repeat up to 3 times\n  --negative-prompt <text>\n  --json\n\nRun a command with --help to see its full options.\n`);
-}
-
-function writeError(error: unknown): number {
-  const message = error instanceof Error ? error.message : 'Videos command failed.';
-  process.stderr.write(`Error: ${message}\n`);
-  return error instanceof CommandUsageError ? 2 : 1;
 }

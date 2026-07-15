@@ -3,13 +3,14 @@ import { authLogout } from './auth-logout.ts';
 import { authSetKey } from './auth-set-key.ts';
 import { authStatus } from './auth-status.ts';
 import { showAuthHelp } from './show-auth-help.ts';
+import { writeError } from '../output/write-error.ts';
+import { CommandUsageError } from './command-usage-error.ts';
 
 export async function runAuth(arguments_: string[]): Promise<number> {
   const command = arguments_[0];
 
   if (arguments_.length > 1) {
-    process.stderr.write('Auth commands do not accept additional arguments.\n');
-    return 2;
+    return writeError(new CommandUsageError('Auth commands do not accept additional arguments.'));
   }
 
   try {
@@ -37,11 +38,8 @@ export async function runAuth(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    process.stderr.write('Unknown auth command.\n');
-    return 2;
+    return writeError(new CommandUsageError('Unknown auth command.'));
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Authentication failed.';
-    process.stderr.write(`Error: ${message}\n`);
-    return 1;
+    return writeError(error, 'Authentication failed.');
   }
 }

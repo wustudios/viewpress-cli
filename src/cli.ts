@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 import packageJson from '../package.json' with { type: 'json' };
+import { parseGlobalArguments } from './cli/parse-global-arguments.ts';
+import { setRuntimeOptions } from './cli/runtime-options.ts';
 import { runAssets } from './commands/run-assets.ts';
 import { runAuth } from './commands/run-auth.ts';
 import { runAudio } from './commands/run-audio.ts';
@@ -13,11 +15,25 @@ import { runSocial } from './commands/run-social.ts';
 import { runStyles } from './commands/run-styles.ts';
 import { runVideos } from './commands/run-videos.ts';
 import { runVoices } from './commands/run-voices.ts';
+import { CommandUsageError } from './commands/command-usage-error.ts';
 import { showHelp } from './commands/show-help.ts';
 import { showVersion } from './commands/show-version.ts';
+import { writeError } from './output/write-error.ts';
 
-const arguments_ = Bun.argv.slice(2);
-process.exitCode = await runCli(arguments_);
+const rawArguments = Bun.argv.slice(2);
+setRuntimeOptions({
+  json: rawArguments.includes('--json'),
+  nonInteractive: rawArguments.includes('--json') || rawArguments.includes('--non-interactive'),
+  timeoutSec: 30,
+});
+
+try {
+  const parsed = parseGlobalArguments(rawArguments);
+  setRuntimeOptions(parsed.options);
+  process.exitCode = await runCli(parsed.arguments);
+} catch (error) {
+  process.exitCode = writeError(error);
+}
 
 async function runCli(cliArguments: string[]): Promise<number> {
   const command = cliArguments[0];
@@ -78,14 +94,12 @@ async function runCli(cliArguments: string[]): Promise<number> {
     return runVoices(cliArguments.slice(1));
   }
 
-  process.stderr.write(`Error: Unknown command: ${command}\n`);
-  return 2;
+  return writeError(new CommandUsageError(`Unknown command: ${command}`));
 }
 
 function showRootHelp(cliArguments: string[]): number {
   if (cliArguments.length > 1) {
-    process.stderr.write('Error: Help does not accept additional arguments.\n');
-    return 2;
+    return writeError(new CommandUsageError('Help does not accept additional arguments.'));
   }
 
   showHelp();
@@ -94,8 +108,7 @@ function showRootHelp(cliArguments: string[]): number {
 
 function showRootVersion(cliArguments: string[]): number {
   if (cliArguments.length > 1) {
-    process.stderr.write('Error: Version does not accept additional arguments.\n');
-    return 2;
+    return writeError(new CommandUsageError('Version does not accept additional arguments.'));
   }
 
   showVersion(packageJson.version);

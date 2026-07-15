@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
 const styleInputsSchema = z.object({
@@ -47,9 +48,7 @@ export async function runStyles(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown styles command: ${command}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Styles command failed.';
-    process.stderr.write(`Error: ${message}\n`);
-    return error instanceof CommandUsageError ? 2 : 1;
+    return writeError(error, 'Styles command failed.');
   }
 }
 

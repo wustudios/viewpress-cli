@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
 const projectsResponseSchema = z.object({
@@ -36,7 +37,7 @@ export async function runProjects(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown projects command: ${command}`);
   } catch (error) {
-    return writeError(error);
+    return writeError(error, 'Projects command failed.');
   }
 }
 
@@ -134,10 +135,4 @@ function getJsonOption(arguments_: string[]): boolean {
 
 function showProjectsHelp(): void {
   process.stdout.write(`Usage: viewpress projects <command>\n\nCommands:\n  list [--json]\n  create --name <name> [--json]\n`);
-}
-
-function writeError(error: unknown): number {
-  const message = error instanceof Error ? error.message : 'Projects command failed.';
-  process.stderr.write(`Error: ${message}\n`);
-  return error instanceof CommandUsageError ? 2 : 1;
 }

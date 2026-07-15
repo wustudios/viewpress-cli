@@ -54,18 +54,24 @@ describe('social commands', () => {
     ]);
 
     expect(JSON.parse(list.stdout)).toEqual({
-      accounts: [{
-        connectedAt: 1_700_000_000_000,
-        displayName: 'Viewpress',
-        disabled: false,
-        id: 'account-1',
-        platform: 'youtube',
-        username: '@viewpress',
-      }],
+      ok: true,
+      data: {
+        accounts: [{
+          connectedAt: 1_700_000_000_000,
+          displayName: 'Viewpress',
+          disabled: false,
+          id: 'account-1',
+          platform: 'youtube',
+          username: '@viewpress',
+        }],
+      },
     });
     expect(JSON.parse(connect.stdout)).toEqual({
-      instructions: 'Open this URL to connect YouTube.',
-      url: 'https://viewpress.ai/connect/session-1',
+      ok: true,
+      data: {
+        instructions: 'Open this URL to connect YouTube.',
+        url: 'https://viewpress.ai/connect/session-1',
+      },
     });
     expect(requests.slice(0, 2)).toEqual([
       { body: undefined, method: 'GET', pathname: '/api/v1/social/accounts', search: '?project_id=project-1' },
@@ -94,19 +100,25 @@ describe('social commands', () => {
     ]);
     const cancel = await runCli(['social', 'posts', 'cancel', 'post-cancel', '--json']);
 
-    expect(JSON.parse(create.stdout)).toEqual({ postId: 'post-created', state: 'scheduled', publishAt: 1_753_056_000_000 });
-    expect(JSON.parse(list.stdout)).toEqual({ posts: [getPost('post-listed')] });
-    expect(JSON.parse(get.stdout)).toEqual(getPost('post-get'));
+    expect(JSON.parse(create.stdout)).toEqual({
+      ok: true,
+      data: { postId: 'post-created', state: 'scheduled', publishAt: 1_753_056_000_000 },
+    });
+    expect(JSON.parse(list.stdout)).toEqual({ ok: true, data: { posts: [getPost('post-listed')] } });
+    expect(JSON.parse(get.stdout)).toEqual({ ok: true, data: getPost('post-get') });
     expect(JSON.parse(wait.stdout)).toEqual({
-      ...getPost('post-wait'),
-      platformPostUrl: 'https://youtube.com/shorts/post-wait',
-      publishedAt: 1_753_056_100_000,
-      state: 'published',
+      ok: true,
+      data: {
+        ...getPost('post-wait'),
+        platformPostUrl: 'https://youtube.com/shorts/post-wait',
+        publishedAt: 1_753_056_100_000,
+        state: 'published',
+      },
     });
     expect(cancel).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: '{"canceled":true,"postId":"post-cancel"}\n',
+      stdout: '{"ok":true,"data":{"canceled":true,"postId":"post-cancel"}}\n',
     });
     expect(requests.slice(requestStart)).toMatchObject([
       {

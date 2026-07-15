@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
+import { CliError } from '../cli/cli-error.ts';
 import type { StoredConfig } from './stored-config.ts';
 import { getConfigPath } from './get-config-path.ts';
 import { getApiUrl } from './get-api-url.ts';
@@ -22,10 +23,16 @@ export async function findStoredConfig(): Promise<StoredConfig | null> {
 }
 
 function parseStoredConfig(contents: string): StoredConfig {
-  const value: unknown = JSON.parse(contents);
+  let value: unknown;
+
+  try {
+    value = JSON.parse(contents);
+  } catch {
+    throwInvalidConfig();
+  }
 
   if (!isRecord(value) || typeof value.api_url !== 'string') {
-    throw new Error('The Viewpress config file is invalid.');
+    throwInvalidConfig();
   }
 
   const apiUrl = getApiUrl(value.api_url);
@@ -35,11 +42,19 @@ function parseStoredConfig(contents: string): StoredConfig {
   }
 
   if (typeof value.api_key !== 'string') {
-    throw new Error('The Viewpress config file is invalid.');
+    throwInvalidConfig();
   }
 
   guardApiKey(value.api_key);
   return { api_key: value.api_key, api_url: apiUrl };
+}
+
+function throwInvalidConfig(): never {
+  throw new CliError({
+    exitCode: 2,
+    message: 'The Viewpress config file is invalid.',
+    type: 'config_error',
+  });
 }
 
 function isMissingFileError(error: unknown): boolean {

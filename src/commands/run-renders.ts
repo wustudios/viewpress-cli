@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
 const renderResponseSchema = z.object({
@@ -41,9 +42,7 @@ export async function runRenders(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown renders command: ${command}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Renders command failed.';
-    process.stderr.write(`Error: ${message}\n`);
-    return error instanceof CommandUsageError ? 2 : 1;
+    return writeError(error, 'Renders command failed.');
   }
 }
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
 const creditsResponseSchema = z.object({
@@ -31,9 +32,7 @@ export async function runCredits(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown credits command: ${command}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Credits command failed.';
-    process.stderr.write(`Error: ${message}\n`);
-    return error instanceof CommandUsageError ? 2 : 1;
+    return writeError(error, 'Credits command failed.');
   }
 }
 

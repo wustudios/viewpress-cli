@@ -64,7 +64,7 @@ describe('image commands', () => {
     expect(generated).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: '{"assetId":"asset-generated","status":"pending"}\n',
+      stdout: '{"ok":true,"data":{"assetId":"asset-generated","status":"pending"}}\n',
     });
     expect(edited).toEqual({
       exitCode: 0,

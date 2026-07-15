@@ -3,7 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { CliError } from '../cli/cli-error.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
 const platformSchema = z.enum(['tiktok', 'instagram', 'youtube']);
@@ -98,9 +101,7 @@ export async function runSocial(arguments_: string[]): Promise<number> {
     }
     throw new CommandUsageError(`Unknown social resource: ${resource}`);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Social command failed.';
-    process.stderr.write(`Error: ${message}\n`);
-    return error instanceof CommandUsageError ? 2 : 1;
+    return writeError(error, 'Social command failed.');
   }
 }
 
@@ -394,20 +395,20 @@ async function waitForPost(arguments_: string[]): Promise<void> {
       return;
     }
     if (post.state === 'failed' || post.state === 'canceled') {
-      throw new Error(
-        `Social post ${post.id} ended with state ${post.state}${post.errorMessage ? `: ${post.errorMessage}` : '.'}`,
-      );
+      throw new CliError({
+        exitCode: 1,
+        message: `Social post ${post.id} ended with state ${post.state}${post.errorMessage ? `: ${post.errorMessage}` : '.'}`,
+        type: 'terminal_error',
+      });
     }
     writeWaitNotice(post, options.json);
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) {
-      throw new Error(`Timed out waiting for social post ${post.id} after ${String(options.waitTimeoutSec)} seconds.`);
+      throwWaitTimeout(post.id, options.waitTimeoutSec);
     }
     await Bun.sleep(Math.min(options.pollIntervalSec * 1000, remainingMs));
   }
-  throw new Error(
-    `Timed out waiting for social post ${options.postId} after ${String(options.waitTimeoutSec)} seconds.`,
-  );
+  throwWaitTimeout(options.postId, options.waitTimeoutSec);
 }
 
 function getWaitOptions(arguments_: string[]): {
@@ -535,10 +536,18 @@ function writePostLine(post: z.infer<typeof postSchema>): void {
 }
 
 function writeWaitNotice(post: z.infer<typeof postSchema>, json: boolean): void {
-  if (json || !process.stderr.isTTY) {
+  if (json || getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
     return;
   }
   process.stderr.write(`Waiting for social post ${post.id}: ${post.state}.\n`);
+}
+
+function throwWaitTimeout(postId: string, waitTimeoutSec: number): never {
+  throw new CliError({
+    exitCode: 4,
+    message: `Timed out waiting for social post ${postId} after ${String(waitTimeoutSec)} seconds.`,
+    type: 'timeout_error',
+  });
 }
 
 function showSocialHelp(): void {

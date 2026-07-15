@@ -67,12 +67,12 @@ describe('render and media import commands', () => {
     expect(rendered).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: '{"assetId":"asset-render","status":"pending"}\n',
+      stdout: '{"ok":true,"data":{"assetId":"asset-render","status":"pending"}}\n',
     });
     expect(imported).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: '{"assetId":"asset-imported","kind":"video","mimeType":"video/mp4","status":"ready"}\n',
+      stdout: '{"ok":true,"data":{"assetId":"asset-imported","kind":"video","mimeType":"video/mp4","status":"ready"}}\n',
     });
     expect(requests[0]).toMatchObject({
       authorization: 'Bearer vp_test_key',

@@ -83,7 +83,7 @@ describe('asset commands', () => {
     expect(list).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: `${JSON.stringify({ assets: [getAssetResponse('asset-ready')] })}\n`,
+      stdout: `${JSON.stringify({ ok: true, data: { assets: [getAssetResponse('asset-ready')] } })}\n`,
     });
     expect(get).toEqual({
       exitCode: 0,
@@ -93,7 +93,7 @@ describe('asset commands', () => {
     expect(wait).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: `${JSON.stringify(getAssetResponse('asset-wait'))}\n`,
+      stdout: `${JSON.stringify({ ok: true, data: getAssetResponse('asset-wait') })}\n`,
     });
     expect(requests.find((request) => request.pathname === '/api/v1/assets')?.search)
       .toBe('?limit=50&video_id=video-1&kind=video');
@@ -114,7 +114,7 @@ describe('asset commands', () => {
     }
 
     expect(results.every((result) => result.exitCode === 0 && result.stderr === '')).toBe(true);
-    expect(results.every((result) => result.stdout === '{"assetId":"asset-transformed","status":"pending"}\n'))
+    expect(results.every((result) => result.stdout === '{"ok":true,"data":{"assetId":"asset-transformed","status":"pending"}}\n'))
       .toBe(true);
     expect(requests.slice(requestCount)).toMatchObject([
       {
@@ -169,16 +169,19 @@ describe('asset commands', () => {
     expect(existing.exitCode).toBe(2);
     expect(existing.stderr).toContain('already exists');
     expect(await readFile(existingPath, 'utf8')).toBe('keep me');
-    expect(partial.exitCode).toBe(1);
+    expect(partial.exitCode).toBe(5);
     expect(await readdir(configDirectory)).not.toContain('partial.bin');
     expect((await readdir(configDirectory)).some((name) => name.startsWith('.partial.bin.'))).toBe(false);
   });
 
-  test('returns nonzero for terminal wait failures', async () => {
-    const terminal = await runCli(['assets', 'wait', 'asset-error', '--poll-interval', '0.01']);
+  test('returns a JSON error for terminal wait failures', async () => {
+    const terminal = await runCli(['--json', 'assets', 'wait', 'asset-error', '--poll-interval', '0.01']);
 
     expect(terminal.exitCode).toBe(1);
-    expect(terminal.stderr).toContain('ended with status error: render failed');
+    expect(terminal.stdout).toBe('');
+    expect(terminal.stderr).toBe(
+      '{"ok":false,"error":{"type":"terminal_error","message":"Asset asset-error ended with status error: render failed"}}\n',
+    );
   });
 });
 
