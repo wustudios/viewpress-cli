@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import packageJson from '../package.json' with { type: 'json' };
+import { runAssets } from './commands/run-assets.ts';
 import { runAuth } from './commands/run-auth.ts';
 import { runAudio } from './commands/run-audio.ts';
 import { runCredits } from './commands/run-credits.ts';
@@ -46,6 +47,10 @@ async function runCli(cliArguments: string[]): Promise<number> {
 
   if (command === 'images') {
     return runImages(cliArguments.slice(1));
+  }
+
+  if (command === 'assets') {
+    return runAssets(cliArguments.slice(1));
   }
 
   if (command === 'renders') {

@@ -11,6 +11,7 @@ Commands:
   styles list                  List generation styles and image models
   voices list                  List saved voices and built-in presets
   images generate|edit         Generate or edit images
+  assets <command>             List, inspect, transform, or download assets
   renders create               Render a timeline
   media import                 Import media from a public URL
   speech generate              Generate speech audio
