@@ -17,6 +17,35 @@ const aspectRatioSchema = z.enum(['1:1', '9:16', '16:9', '4:5']);
 const imageModelSchema = z.enum(['I-FAST', 'I-PRO', 'I-REALISTIC']);
 const referenceAssetIdsSchema = z.array(z.string()).min(1).max(6);
 
+interface ImageInput {
+  aspectRatio: string;
+  json: boolean;
+  model: string;
+  name: string | undefined;
+  prompt: string | undefined;
+  promptFile: string | undefined;
+  referenceAssetIds: string[];
+  videoId: string | undefined;
+}
+
+interface ImageOptions {
+  aspectRatio: z.infer<typeof aspectRatioSchema>;
+  json: boolean;
+  model: z.infer<typeof imageModelSchema>;
+  name: string;
+  prompt: string;
+  referenceAssetIds: string[];
+  videoId: string;
+}
+
+interface ImageArgument {
+  arguments_: string[];
+  index: number;
+  input: ImageInput;
+  needsReferences: boolean;
+  seen: Set<string>;
+}
+
 export async function runImages(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -76,92 +105,77 @@ async function editImage(arguments_: string[]): Promise<void> {
   writeImageResponse(response, options.json);
 }
 
-async function getImageOptions(arguments_: string[], needsReferences: boolean): Promise<{
-  aspectRatio: z.infer<typeof aspectRatioSchema>;
-  json: boolean;
-  model: z.infer<typeof imageModelSchema>;
-  name: string;
-  prompt: string;
-  referenceAssetIds: string[];
-  videoId: string;
-}> {
-  let aspectRatio = '9:16';
-  let hasAspectRatio = false;
-  let json = false;
-  let hasModel = false;
-  let model = 'I-PRO';
-  let name: string | undefined;
-  let prompt: string | undefined;
-  let promptFile: string | undefined;
-  const referenceAssetIds: string[] = [];
-  let videoId: string | undefined;
+async function getImageOptions(arguments_: string[], needsReferences: boolean): Promise<ImageOptions> {
+  const input = getImageInput(arguments_, needsReferences);
+  const prompt = await getPrompt(input.prompt, input.promptFile);
+  return getValidatedImageOptions({ input, needsReferences, prompt });
+}
 
+function getImageInput(arguments_: string[], needsReferences: boolean): ImageInput {
+  const input: ImageInput = {
+    aspectRatio: '9:16', json: false, model: 'I-PRO', name: undefined, prompt: undefined,
+    promptFile: undefined, referenceAssetIds: [], videoId: undefined,
+  };
+  const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
+    index = readImageArgument({ arguments_, index, input, needsReferences, seen });
+  }
+  return input;
+}
 
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
-
-    if (argument === '--reference-asset-id' && needsReferences) {
-      referenceAssetIds.push(getOptionValue(arguments_, index, argument));
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--video-id' && videoId === undefined) {
-      videoId = getOptionValue(arguments_, index, argument);
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--name' && name === undefined) {
-      name = getOptionValue(arguments_, index, argument);
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--prompt' && prompt === undefined && promptFile === undefined) {
-      prompt = getOptionValue(arguments_, index, argument);
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--prompt-file' && promptFile === undefined && prompt === undefined) {
-      promptFile = getOptionValue(arguments_, index, argument);
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--aspect-ratio' && !hasAspectRatio) {
-      aspectRatio = getOptionValue(arguments_, index, argument);
-      hasAspectRatio = true;
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--model' && !needsReferences && !hasModel) {
-      model = getOptionValue(arguments_, index, argument);
-      hasModel = true;
-      index += 1;
-      continue;
-    }
-
+function readImageArgument(values: ImageArgument): number {
+  const { arguments_, index, input, needsReferences, seen } = values;
+  const argument = arguments_[index];
+  if (argument === '--json') {
+    guardNewImageOption(seen, 'json', argument);
+    input.json = true;
+    return index;
+  }
+  if (argument === '--reference-asset-id' && needsReferences) {
+    input.referenceAssetIds.push(getOptionValue(arguments_, index, argument));
+    return index + 1;
+  }
+  const property = getImageProperty(argument, needsReferences);
+  if (!property) {
     throw new CommandUsageError(`Unknown, repeated, or conflicting images option: ${String(argument)}`);
   }
+  guardNewImageOption(seen, property, String(argument));
+  input[property] = getOptionValue(arguments_, index, String(argument));
+  return index + 1;
+}
 
-  const resolvedPrompt = await getPrompt(prompt, promptFile);
-  return getValidatedImageOptions({
-    aspectRatio,
-    json,
-    model,
-    name,
-    needsReferences,
-    prompt: resolvedPrompt,
-    referenceAssetIds,
-    videoId,
-  });
+function getImageProperty(argument: string | undefined, needsReferences: boolean): keyof Pick<
+  ImageInput,
+  'aspectRatio' | 'model' | 'name' | 'prompt' | 'promptFile' | 'videoId'
+> | null {
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--prompt') {
+    return 'prompt';
+  }
+  if (argument === '--prompt-file') {
+    return 'promptFile';
+  }
+  if (argument === '--aspect-ratio') {
+    return 'aspectRatio';
+  }
+  if (argument === '--model' && !needsReferences) {
+    return 'model';
+  }
+  return null;
+}
+
+function guardNewImageOption(seen: Set<string>, property: string, option: string): void {
+  const conflictsWithPrompt = property === 'prompt' && seen.has('promptFile');
+  const conflictsWithPromptFile = property === 'promptFile' && seen.has('prompt');
+  if (seen.has(property) || conflictsWithPrompt || conflictsWithPromptFile) {
+    throw new CommandUsageError(`Unknown, repeated, or conflicting images option: ${option}`);
+  }
+  seen.add(property);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
@@ -190,62 +204,60 @@ async function getPrompt(prompt: string | undefined, promptFile: string | undefi
   return readFile(promptFile, 'utf8');
 }
 
-function getValidatedImageOptions(options: {
-  aspectRatio: string;
-  json: boolean;
-  model: string;
-  name: string | undefined;
+function getValidatedImageOptions(values: {
+  input: ImageInput;
   needsReferences: boolean;
   prompt: string | undefined;
-  referenceAssetIds: string[];
-  videoId: string | undefined;
-}): {
-  aspectRatio: z.infer<typeof aspectRatioSchema>;
-  json: boolean;
-  model: z.infer<typeof imageModelSchema>;
+}): ImageOptions {
+  const text = getValidatedImageText(values.input, values.prompt);
+  const format = getValidatedImageFormat(values.input, values.needsReferences);
+  return {
+    aspectRatio: format.aspectRatio,
+    json: values.input.json,
+    model: format.model,
+    name: text.name,
+    prompt: text.prompt,
+    referenceAssetIds: values.input.referenceAssetIds,
+    videoId: text.videoId,
+  };
+}
+
+function getValidatedImageText(input: ImageInput, promptInput: string | undefined): {
   name: string;
   prompt: string;
-  referenceAssetIds: string[];
   videoId: string;
 } {
-  if (!options.videoId) {
+  if (!input.videoId) {
     throw new CommandUsageError('Images commands require --video-id.');
   }
-
-  const name = imageNameSchema.safeParse(options.name);
+  const name = imageNameSchema.safeParse(input.name);
   if (!name.success) {
     throw new CommandUsageError('Images commands require --name with 1 to 120 characters.');
   }
-
-  const prompt = imagePromptSchema.safeParse(options.prompt);
+  const prompt = imagePromptSchema.safeParse(promptInput);
   if (!prompt.success) {
     throw new CommandUsageError('Images commands require --prompt or --prompt-file with at least 3 characters.');
   }
+  return { name: name.data, prompt: prompt.data, videoId: input.videoId };
+}
 
-  const aspectRatio = aspectRatioSchema.safeParse(options.aspectRatio);
+function getValidatedImageFormat(input: ImageInput, needsReferences: boolean): {
+  aspectRatio: z.infer<typeof aspectRatioSchema>;
+  model: z.infer<typeof imageModelSchema>;
+} {
+  const aspectRatio = aspectRatioSchema.safeParse(input.aspectRatio);
   if (!aspectRatio.success) {
     throw new CommandUsageError('Images --aspect-ratio must be 1:1, 9:16, 16:9, or 4:5.');
   }
-
-  const model = imageModelSchema.safeParse(options.model);
+  const model = imageModelSchema.safeParse(input.model);
   if (!model.success) {
     throw new CommandUsageError('Images --model must be I-FAST, I-PRO, or I-REALISTIC.');
   }
-
-  const referenceAssetIds = referenceAssetIdsSchema.safeParse(options.referenceAssetIds);
-  if (options.needsReferences && !referenceAssetIds.success) {
+  const referenceAssetIds = referenceAssetIdsSchema.safeParse(input.referenceAssetIds);
+  if (needsReferences && !referenceAssetIds.success) {
     throw new CommandUsageError('Images edit requires 1 to 6 --reference-asset-id values.');
   }
-
-  return {
-    aspectRatio: aspectRatio.data,
-    json: options.json,
-    model: model.data,
-    name: name.data,
-    prompt: prompt.data,
-    referenceAssetIds: options.referenceAssetIds,
-    videoId: options.videoId,
-  };
+  return { aspectRatio: aspectRatio.data, model: model.data };
 }
 
 function writeImageResponse(response: z.infer<typeof imageResponseSchema>, json: boolean): void {

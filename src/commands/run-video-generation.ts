@@ -66,6 +66,18 @@ interface VideoGenerationArgument {
   seen: Set<string>;
 }
 
+interface VideoGenerationText {
+  name: string;
+  prompt: string;
+  videoId: string;
+}
+
+interface VideoGenerationFormat {
+  aspectRatio: z.infer<typeof aspectRatioSchema>;
+  durationSec: number;
+  model: z.infer<typeof videoModelSchema>;
+}
+
 export async function runVideoGeneration(command: 'estimate' | 'generate', arguments_: string[]): Promise<void> {
   if (arguments_.length === 1 && (arguments_[0] === '--help' || arguments_[0] === '-h')) {
     showVideoGenerationHelp(command);
@@ -259,56 +271,57 @@ function validateVideoGenerationInput(
   input: VideoGenerationInput,
   promptInput: string | undefined,
 ): VideoGenerationOptions {
+  const text = getValidatedVideoGenerationText(input, promptInput);
+  const format = getValidatedVideoGenerationFormat(input);
+  guardGenerationReferenceCounts(input);
+  return {
+    aspectRatio: format.aspectRatio, durationSec: format.durationSec, endImageAssetId: input.endImageAssetId,
+    json: input.json, model: format.model, name: text.name, negativePrompt: input.negativePrompt,
+    prompt: text.prompt, referenceAudioAssetIds: input.referenceAudioAssetIds,
+    referenceImageAssetIds: input.referenceImageAssetIds, referenceVideoAssetIds: input.referenceVideoAssetIds,
+    startImageAssetId: input.startImageAssetId, videoId: text.videoId, withAudio: input.withAudio,
+  };
+}
+
+function getValidatedVideoGenerationText(
+  input: VideoGenerationInput,
+  promptInput: string | undefined,
+): VideoGenerationText {
   if (input.videoId === undefined) {
     throw new CommandUsageError('Videos generate and estimate require --video-id.');
   }
-
   const name = videoNameSchema.safeParse(input.name);
   if (!name.success) {
     throw new CommandUsageError('Videos generate and estimate require --name with 1 to 120 characters.');
   }
-
   const prompt = videoPromptSchema.safeParse(promptInput);
   if (!prompt.success) {
     throw new CommandUsageError('Videos generate and estimate require --prompt or --prompt-file with at least 3 characters.');
   }
+  return { name: name.data, prompt: prompt.data, videoId: input.videoId };
+}
 
+function getValidatedVideoGenerationFormat(input: VideoGenerationInput): VideoGenerationFormat {
   const model = videoModelSchema.safeParse(input.model);
   if (!model.success) {
     throw new CommandUsageError(`Videos --model must be ${videoModelSchema.options.join(', ')}.`);
   }
-
   const durationSec = durationSecSchema.safeParse(Number(input.durationSec));
   if (!durationSec.success) {
     throw new CommandUsageError('Videos --duration-sec must be a number from 1 to 15.');
   }
-
   guardModelDuration(model.data, durationSec.data);
   const aspectRatio = aspectRatioSchema.safeParse(input.aspectRatio);
   if (!aspectRatio.success) {
     throw new CommandUsageError('Videos --aspect-ratio must be 1:1, 9:16, or 16:9.');
   }
+  return { aspectRatio: aspectRatio.data, durationSec: durationSec.data, model: model.data };
+}
 
+function guardGenerationReferenceCounts(input: VideoGenerationInput): void {
   guardReferenceCount(input.referenceImageAssetIds, 9, '--reference-image-asset-id');
   guardReferenceCount(input.referenceVideoAssetIds, 3, '--reference-video-asset-id');
   guardReferenceCount(input.referenceAudioAssetIds, 3, '--reference-audio-asset-id');
-
-  return {
-    aspectRatio: aspectRatio.data,
-    durationSec: durationSec.data,
-    endImageAssetId: input.endImageAssetId,
-    json: input.json,
-    model: model.data,
-    name: name.data,
-    negativePrompt: input.negativePrompt,
-    prompt: prompt.data,
-    referenceAudioAssetIds: input.referenceAudioAssetIds,
-    referenceImageAssetIds: input.referenceImageAssetIds,
-    referenceVideoAssetIds: input.referenceVideoAssetIds,
-    startImageAssetId: input.startImageAssetId,
-    videoId: input.videoId,
-    withAudio: input.withAudio,
-  };
 }
 
 function guardModelDuration(model: z.infer<typeof videoModelSchema>, durationSec: number): void {

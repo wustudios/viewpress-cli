@@ -28,6 +28,21 @@ interface VoiceOptions {
   query?: string;
 }
 
+interface VoiceInput {
+  gender: string | undefined;
+  json: boolean;
+  limit: string | undefined;
+  projectId: string | undefined;
+  query: string | undefined;
+}
+
+interface VoiceArgument {
+  arguments_: string[];
+  index: number;
+  input: VoiceInput;
+  seen: Set<string>;
+}
+
 export async function runVoices(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -73,48 +88,62 @@ async function listVoices(arguments_: string[]): Promise<void> {
 }
 
 function getVoiceOptions(arguments_: string[]): VoiceOptions {
-  let gender: string | undefined;
-  let json = false;
-  let limit: string | undefined;
-  let projectId: string | undefined;
-  let query: string | undefined;
+  const input = getVoiceInput(arguments_);
+  return getValidatedVoiceOptions(input);
+}
 
+function getVoiceInput(arguments_: string[]): VoiceInput {
+  const input: VoiceInput = {
+    gender: undefined, json: false, limit: undefined, projectId: undefined, query: undefined,
+  };
+  const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
+    index = readVoiceArgument({ arguments_, index, input, seen });
+  }
+  return input;
+}
 
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
-
-    if (argument === '--project-id' && projectId === undefined) {
-      projectId = getOptionValue(arguments_, index, '--project-id');
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--query' && query === undefined) {
-      query = getOptionValue(arguments_, index, '--query');
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--gender' && gender === undefined) {
-      gender = getOptionValue(arguments_, index, '--gender');
-      index += 1;
-      continue;
-    }
-
-    if (argument === '--limit' && limit === undefined) {
-      limit = getOptionValue(arguments_, index, '--limit');
-      index += 1;
-      continue;
-    }
-
+function readVoiceArgument(values: VoiceArgument): number {
+  const { arguments_, index, input, seen } = values;
+  const argument = arguments_[index];
+  if (argument === '--json') {
+    guardNewVoiceOption(seen, 'json', argument);
+    input.json = true;
+    return index;
+  }
+  const property = getVoiceProperty(argument);
+  if (!property) {
     throw new CommandUsageError(`Unknown or repeated voices list option: ${String(argument)}`);
   }
+  guardNewVoiceOption(seen, property, String(argument));
+  input[property] = getOptionValue(arguments_, index, String(argument));
+  return index + 1;
+}
 
-  return getValidatedVoiceOptions({ gender, json, limit, projectId, query });
+function getVoiceProperty(argument: string | undefined): keyof Pick<
+  VoiceInput,
+  'gender' | 'limit' | 'projectId' | 'query'
+> | null {
+  if (argument === '--project-id') {
+    return 'projectId';
+  }
+  if (argument === '--query') {
+    return 'query';
+  }
+  if (argument === '--gender') {
+    return 'gender';
+  }
+  if (argument === '--limit') {
+    return 'limit';
+  }
+  return null;
+}
+
+function guardNewVoiceOption(seen: Set<string>, property: string, option: string): void {
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Unknown or repeated voices list option: ${option}`);
+  }
+  seen.add(property);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
