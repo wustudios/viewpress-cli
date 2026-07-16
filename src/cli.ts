@@ -39,8 +39,8 @@ try {
 async function runCli(cliArguments: string[]): Promise<number> {
   const command = cliArguments[0];
 
-  if (command === undefined || command === '--help' || command === '-h') {
-    return showRootHelp(cliArguments);
+  if (command === undefined || command === '--help') {
+    return showRootHelp();
   }
 
   if (command === 'auth') {
@@ -94,11 +94,7 @@ async function runCli(cliArguments: string[]): Promise<number> {
   return writeError(new CommandUsageError(`Unknown command: ${command}`));
 }
 
-function showRootHelp(cliArguments: string[]): number {
-  if (cliArguments.length > 1) {
-    return writeError(new CommandUsageError('Help does not accept additional arguments.'));
-  }
-
+function showRootHelp(): number {
   showHelp();
   return 0;
 }

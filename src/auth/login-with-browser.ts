@@ -4,7 +4,7 @@ import { openBrowser } from './open-browser.ts';
 import { pollBrowserLoginSession } from './poll-browser-login-session.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 
-export interface LoginWithBrowserOptions {
+interface LoginWithBrowserOptions {
   apiUrl: string;
   fetchRequest?: FetchRequest;
   openUrl?: (url: string) => Promise<void>;
