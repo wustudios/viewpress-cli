@@ -18,7 +18,7 @@ export async function runCredits(arguments_: string[]): Promise<number> {
 
     if (command === 'get') {
       if (arguments_.includes('--help')) {
-        showCreditsHelp();
+        showCreditsGetHelp();
         return 0;
       }
       await getCredits(arguments_.slice(1));
@@ -73,5 +73,15 @@ function guardNoArguments(arguments_: string[]): void {
 }
 
 function showCreditsHelp(): void {
+  process.stdout.write(`Usage: viewpress credits <command>
+
+Commands:
+  get  Show the credit balance
+
+Run 'viewpress credits get --help' for full options.
+`);
+}
+
+function showCreditsGetHelp(): void {
   process.stdout.write('Usage: viewpress credits get [--json]\n');
 }

@@ -34,7 +34,7 @@ export async function runStyles(arguments_: string[]): Promise<number> {
 
     if (command === 'list') {
       if (arguments_.includes('--help')) {
-        showStylesHelp();
+        showStylesListHelp();
         return 0;
       }
       await listStyles(arguments_.slice(1));
@@ -94,5 +94,15 @@ function guardNoArguments(arguments_: string[]): void {
 }
 
 function showStylesHelp(): void {
+  process.stdout.write(`Usage: viewpress styles <command>
+
+Commands:
+  list  List generation styles and image models
+
+Run 'viewpress styles list --help' for full options.
+`);
+}
+
+function showStylesListHelp(): void {
   process.stdout.write('Usage: viewpress styles list [--json]\n');
 }

@@ -589,17 +589,68 @@ function writeAudioResponse(resource: string, response: z.infer<typeof audioResp
 }
 
 function showAudioHelp(resource: 'music' | 'sfx' | 'speech'): void {
-  process.stdout.write(`Usage: viewpress ${resource} generate [options]\n`);
+  if (resource === 'speech') {
+    process.stdout.write(`Usage: viewpress speech <command>
+
+Commands:
+  generate  Generate speech audio
+
+Run 'viewpress speech generate --help' for full options.
+`);
+    return;
+  }
+  if (resource === 'music') {
+    process.stdout.write(`Usage: viewpress music <command>
+
+Commands:
+  generate  Generate music
+
+Run 'viewpress music generate --help' for full options.
+`);
+    return;
+  }
+  process.stdout.write(`Usage: viewpress sfx <command>
+
+Commands:
+  generate  Generate sound effects
+
+Run 'viewpress sfx generate --help' for full options.
+`);
 }
 
 function showAudioGenerateHelp(resource: 'music' | 'sfx' | 'speech'): void {
   if (resource === 'speech') {
-    process.stdout.write('Usage: viewpress speech generate --video-id <id> --name <name> (--text <text> | --text-file <path|->) [options]\n');
+    process.stdout.write(`Usage: viewpress speech generate --video-id <id> --name <name> (--text <text> | --text-file <path|->) [options]
+
+Options:
+  --voice-preset <preset>       Built-in voice; presets appear in 'viewpress voices list'
+  --voice-record-id <id>        Saved voice (cannot be combined with --voice-preset)
+  --emotion <happy|sad|angry|fearful|disgusted|surprised|neutral>
+  --speed <0.5..2>
+  --pitch <-12..12>
+  --vol <0.01..10>
+  --language-boost <language>
+  --english-normalization | --no-english-normalization
+  --json
+`);
     return;
   }
   if (resource === 'music') {
-    process.stdout.write('Usage: viewpress music generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --style <style> --duration-sec <seconds> [options]\n');
+    process.stdout.write(`Usage: viewpress music generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --style <style> --duration-sec <3..480> [options]
+
+Options:
+  --description <text>
+  --instrumental-only | --no-instrumental-only    Default: --instrumental-only
+  --json
+`);
     return;
   }
-  process.stdout.write('Usage: viewpress sfx generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [options]\n');
+  process.stdout.write(`Usage: viewpress sfx generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [options]
+
+Options:
+  --duration-sec <0.5..10>     Default: 2
+  --prompt-influence <0..1>    Default: 0.5
+  --description <text>
+  --json
+`);
 }

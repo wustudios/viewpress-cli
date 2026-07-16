@@ -308,14 +308,33 @@ function writeImageResponse(response: z.infer<typeof imageResponseSchema>): void
 }
 
 function showImagesHelp(): void {
-  process.stdout.write(`Usage: viewpress images <command>\n\nCommands:\n  generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [--aspect-ratio <ratio>] [--model <model>] [--json]\n  edit --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --reference-asset-id <id>... [--aspect-ratio <ratio>] [--json]\n`);
+  process.stdout.write(`Usage: viewpress images <command>
+
+Commands:
+  generate  Generate an image from a prompt
+  edit      Edit an image using reference assets
+
+Run 'viewpress images <command> --help' for full options.
+`);
 }
 
 function showImageCommandHelp(command: 'edit' | 'generate'): void {
   if (command === 'generate') {
-    process.stdout.write('Usage: viewpress images generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [--aspect-ratio <ratio>] [--model <model>] [--json]\n');
+    process.stdout.write(`Usage: viewpress images generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [options]
+
+Options:
+  --aspect-ratio <1:1|9:16|16:9|4:5>    Default: 9:16
+  --model <I-FAST|I-PRO|I-REALISTIC>    Default: I-PRO
+  --json
+`);
     return;
   }
 
-  process.stdout.write('Usage: viewpress images edit --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --reference-asset-id <id>... [--aspect-ratio <ratio>] [--json]\n');
+  process.stdout.write(`Usage: viewpress images edit --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --reference-asset-id <id>... [options]
+
+Options:
+  --reference-asset-id <id>             Repeat up to 6 times
+  --aspect-ratio <1:1|9:16|16:9|4:5>    Default: 9:16
+  --json
+`);
 }

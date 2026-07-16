@@ -894,26 +894,121 @@ function parseOptionalEnum<Value extends string>(
 }
 
 function showAssetsHelp(): void {
-  process.stdout.write(`Usage: viewpress assets <command>\n\nCommands:\n  list                  List assets in a video\n  get                   Get one asset\n  wait                  Wait for an asset to finish\n  download              Download a ready asset\n  add-captions          Add captions to a ready video\n  smooth                Smooth a ready video\n  humanize              Humanize a ready video\n  upscale               Upscale a ready video\n  remove-background     Remove a ready video's background\n  enhance-audio         Enhance a ready video's audio\n  transcribe            Start transcription (completion/result unavailable in v1)\n`);
+  process.stdout.write(`Usage: viewpress assets <command>
+
+Commands:
+  list               List assets in a video
+  get                Get one asset
+  wait               Wait for an asset to finish
+  download           Download a ready asset
+  add-captions       Add captions to a ready video
+  smooth             Smooth a ready video
+  humanize           Humanize a ready video
+  upscale            Upscale a ready video
+  remove-background  Remove a ready video's background
+  enhance-audio      Enhance a ready video's audio
+  transcribe         Start transcription (completion/result unavailable in v1)
+
+Run 'viewpress assets <command> --help' for full options.
+`);
 }
 
 function showAssetCommandHelp(command: string): void {
-  const usage: Record<string, string> = {
-    list: 'viewpress assets list --video-id <id> [--kind image|video|audio|sfx|music|render] [--limit <1..200>] [--json]',
-    get: 'viewpress assets get <asset-id> [--json]',
-    wait: 'viewpress assets wait <asset-id> [--wait-timeout <seconds>] [--poll-interval <seconds>] [--json]',
-    download: 'viewpress assets download <asset-id> --output <path|-> [--force] [--json]\n\n--json writes file download metadata and cannot be used with --output -.',
-    'add-captions': 'viewpress assets add-captions <asset-id> [--preset-id <preset>] [--font-size <10..200>] [--color <color>] [--font-family <family>] [--font-weight <number>] [--text-transform uppercase|lowercase|none] [--alignment top|middle|bottom] [--karaoke|--no-karaoke] [--animated|--no-animated] [--words-at-a-time one|short|long] [--json]',
-    smooth: 'viewpress assets smooth <asset-id> [--json]',
-    humanize: 'viewpress assets humanize <asset-id> [--json]',
-    upscale: 'viewpress assets upscale <asset-id> [--width <320..3840> --height <320..3840>] [--output-frame-rate <24..60>] [--json]',
-    'remove-background': 'viewpress assets remove-background <asset-id> [--subject-is-person|--no-subject-is-person] [--refine-foreground-edges|--no-refine-foreground-edges] [--output-codec vp9|h264] [--json]',
-    'enhance-audio': 'viewpress assets enhance-audio <asset-id> [--remove-noise|--no-remove-noise] [--normalize|--no-normalize] [--studio-sound|--no-studio-sound] [--json]',
-    transcribe: 'viewpress assets transcribe <asset-id> [--json]\n\nThe current v1 API starts transcription but does not expose its completion state or transcript result.',
-  };
-  const commandUsage = usage[command];
-  if (!commandUsage) {
-    throw new CommandUsageError(`Unknown assets command: ${command}`);
+  if (command === 'list') {
+    process.stdout.write(`Usage: viewpress assets list --video-id <id> [options]
+
+Options:
+  --kind <image|video|audio|sfx|music|render>
+  --limit <1..200>                               Default: 50
+  --json
+`);
+    return;
   }
-  process.stdout.write(`Usage: ${commandUsage}\n`);
+  if (command === 'get') {
+    process.stdout.write('Usage: viewpress assets get <asset-id> [--json]\n');
+    return;
+  }
+  if (command === 'wait') {
+    process.stdout.write(`Usage: viewpress assets wait <asset-id> [options]
+
+Options:
+  --wait-timeout <seconds>     Default: 600
+  --poll-interval <seconds>    Default: 2
+  --json
+`);
+    return;
+  }
+  if (command === 'download') {
+    process.stdout.write(`Usage: viewpress assets download <asset-id> --output <path|-> [options]
+
+Options:
+  --force    Replace an existing output file
+  --json     Write download metadata (cannot be combined with --output -)
+`);
+    return;
+  }
+  if (command === 'add-captions') {
+    process.stdout.write(`Usage: viewpress assets add-captions <asset-id> [options]
+
+Options:
+  --preset-id <basic|plain_white|minima|viewpress|punch|wrap|outline>    Default: basic
+  --font-size <10..200>                                                  Default: 80
+  --color <color>
+  --font-family <family>
+  --font-weight <number>
+  --text-transform <uppercase|lowercase|none>
+  --alignment <top|middle|bottom>                                        Default: bottom
+  --karaoke | --no-karaoke                                               Default: --karaoke
+  --animated | --no-animated                                             Default: --animated
+  --words-at-a-time <one|short|long>                                     Default: short
+  --json
+`);
+    return;
+  }
+  if (command === 'smooth' || command === 'humanize') {
+    process.stdout.write(`Usage: viewpress assets ${command} <asset-id> [--json]\n`);
+    return;
+  }
+  if (command === 'upscale') {
+    process.stdout.write(`Usage: viewpress assets upscale <asset-id> [options]
+
+Options:
+  --width <320..3840>             Requires --height
+  --height <320..3840>            Requires --width
+  --output-frame-rate <24..60>
+  --json
+`);
+    return;
+  }
+  if (command === 'remove-background') {
+    process.stdout.write(`Usage: viewpress assets remove-background <asset-id> [options]
+
+Options:
+  --subject-is-person | --no-subject-is-person                Default: --subject-is-person
+  --refine-foreground-edges | --no-refine-foreground-edges    Default: --refine-foreground-edges
+  --output-codec <vp9|h264>                                   Default: vp9
+  --json
+`);
+    return;
+  }
+  if (command === 'enhance-audio') {
+    process.stdout.write(`Usage: viewpress assets enhance-audio <asset-id> [options]
+
+Options:
+  --remove-noise | --no-remove-noise    Default: --remove-noise
+  --normalize | --no-normalize          Default: --normalize
+  --studio-sound | --no-studio-sound    Default: --studio-sound
+  --json
+`);
+    return;
+  }
+  if (command === 'transcribe') {
+    process.stdout.write(`Usage: viewpress assets transcribe <asset-id> [--json]
+
+The current v1 API starts transcription but does not expose its completion state or transcript result.
+`);
+    return;
+  }
+
+  throw new CommandUsageError(`Unknown assets command: ${command}`);
 }

@@ -48,7 +48,7 @@ export async function runVoices(arguments_: string[]): Promise<number> {
 
     if (command === 'list') {
       if (arguments_.includes('--help')) {
-        showVoicesHelp();
+        showVoicesListHelp();
         return 0;
       }
       await listVoices(arguments_.slice(1));
@@ -231,7 +231,22 @@ function getVoiceQuery(options: VoiceOptions): URLSearchParams {
 }
 
 function showVoicesHelp(): void {
-  process.stdout.write(
-    'Usage: viewpress voices list --project-id <id> [--query <text>] [--gender <male|female|neutral>] [--limit <1-50>] [--json]\n',
-  );
+  process.stdout.write(`Usage: viewpress voices <command>
+
+Commands:
+  list  List saved voices and built-in presets
+
+Run 'viewpress voices list --help' for full options.
+`);
+}
+
+function showVoicesListHelp(): void {
+  process.stdout.write(`Usage: viewpress voices list --project-id <id> [options]
+
+Options:
+  --query <text>                    Filter voices by search text
+  --gender <male|female|neutral>
+  --limit <1..50>                   Default: 20 (server)
+  --json
+`);
 }

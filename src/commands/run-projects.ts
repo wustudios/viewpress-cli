@@ -175,7 +175,14 @@ function guardNoArguments(arguments_: string[]): void {
 }
 
 function showProjectsHelp(): void {
-  process.stdout.write(`Usage: viewpress projects <command>\n\nCommands:\n  list [--json]\n  create --name <name> [--json]\n`);
+  process.stdout.write(`Usage: viewpress projects <command>
+
+Commands:
+  list    List projects
+  create  Create a project
+
+Run 'viewpress projects <command> --help' for full options.
+`);
 }
 
 function showProjectCommandHelp(command: 'create' | 'list'): void {

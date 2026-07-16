@@ -708,16 +708,48 @@ function writePendingAssetResponse(response: z.infer<typeof pendingAssetResponse
 
 function showStyleToolHelp(command: VideoStyleTool): void {
   if (command === 'motion-transfer') {
-    process.stdout.write('Usage: viewpress videos motion-transfer --video-id <id> --name <name> --image-asset-id <id> --motion-video-asset-id <id> [--character-orientation <image|video>] [--prompt <text> | --prompt-file <path|->] [--keep-original-sound | --no-keep-original-sound] [--json]\n\nDefaults: --character-orientation video, --keep-original-sound\n');
+    process.stdout.write(`Usage: viewpress videos motion-transfer --video-id <id> --name <name> --image-asset-id <id> --motion-video-asset-id <id> [options]
+
+Options:
+  --character-orientation <image|video>               Default: video
+  --prompt <text> | --prompt-file <path|->            At most 2500 characters
+  --keep-original-sound | --no-keep-original-sound    Default: --keep-original-sound
+  --json
+`);
     return;
   }
   if (command === 'talking-image') {
-    process.stdout.write('Usage: viewpress videos talking-image --video-id <id> --name <name> --image-asset-id <id> --audio-asset-id <id> [--aspect-ratio <ratio>] [--resolution <resolution>] [--caption | --no-caption] [--talking-style <style>] [--json]\n\nDefaults: --aspect-ratio 9:16, --resolution 720p, --no-caption, --talking-style stable\n');
+    process.stdout.write(`Usage: viewpress videos talking-image --video-id <id> --name <name> --image-asset-id <id> --audio-asset-id <id> [options]
+
+Options:
+  --aspect-ratio <1:1|9:16|16:9>              Default: 9:16
+  --resolution <360p|480p|540p|720p|1080p>    Default: 720p
+  --caption | --no-caption                    Default: --no-caption
+  --talking-style <stable|expressive>         Default: stable
+  --json
+`);
     return;
   }
   if (command === 'ugc-ad') {
-    process.stdout.write('Usage: viewpress videos ugc-ad --video-id <id> --name <name> --subject-description <text> --dialogue <text> --reference-image-asset-id <id>... --duration-sec <4|6|8|10> [--reference-video-asset-id <id>] [--scene-notes <text>] [--voice-notes <text>] [--camera-notes <text>] [--aspect-ratio <9:16|16:9>] [--json]\n\nDefault: --aspect-ratio 9:16\n');
+    process.stdout.write(`Usage: viewpress videos ugc-ad --video-id <id> --name <name> --subject-description <text> --dialogue <text> --reference-image-asset-id <id>... --duration-sec <4|6|8|10> [options]
+
+Options:
+  --reference-image-asset-id <id>    Repeat up to 7 times (5 with a reference video)
+  --reference-video-asset-id <id>
+  --scene-notes <text>
+  --voice-notes <text>
+  --camera-notes <text>
+  --aspect-ratio <9:16|16:9>         Default: 9:16
+  --json
+`);
     return;
   }
-  process.stdout.write('Usage: viewpress videos timelapse-scene --video-id <id> --name <name> --step-description <text> --start-image-asset-id <id> [--worker-description <text>] [--setting-notes <text>] [--aspect-ratio <9:16|16:9>] [--json]\n\nDefault: --aspect-ratio 9:16\n');
+  process.stdout.write(`Usage: viewpress videos timelapse-scene --video-id <id> --name <name> --step-description <text> --start-image-asset-id <id> [options]
+
+Options:
+  --worker-description <text>
+  --setting-notes <text>
+  --aspect-ratio <9:16|16:9>    Default: 9:16
+  --json
+`);
 }

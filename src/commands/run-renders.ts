@@ -160,7 +160,7 @@ async function getRenderOptions(input: RenderInput): Promise<{
   }
 
   if (input.timelineFile === undefined) {
-    throw new CommandUsageError('Renders create requires --timeline <file|->.');
+    throw new CommandUsageError('Renders create requires --timeline <path|->.');
   }
 
   const timelineText = await readTimeline(input.timelineFile);
@@ -196,9 +196,15 @@ function parseTimeline(timelineText: string): z.infer<typeof timelineSchema> {
 }
 
 function showRendersHelp(): void {
-  process.stdout.write(`Usage: viewpress renders <command>\n\nCommands:\n  create --video-id <id> --name <name> --timeline <file|-> [--json]\n`);
+  process.stdout.write(`Usage: viewpress renders <command>
+
+Commands:
+  create  Render a timeline into a video asset
+
+Run 'viewpress renders create --help' for full options.
+`);
 }
 
 function showRenderCreateHelp(): void {
-  process.stdout.write('Usage: viewpress renders create --video-id <id> --name <name> --timeline <file|-> [--json]\n');
+  process.stdout.write('Usage: viewpress renders create --video-id <id> --name <name> --timeline <path|-> [--json]\n');
 }

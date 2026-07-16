@@ -228,9 +228,20 @@ function isPrivateIpv6(address: string): boolean {
 }
 
 function showMediaHelp(): void {
-  process.stdout.write(`Usage: viewpress media <command>\n\nCommands:\n  import --video-id <id> --url <https-url> [--name <name>] [--json]\n`);
+  process.stdout.write(`Usage: viewpress media <command>
+
+Commands:
+  import  Import media from a public HTTPS URL
+
+Run 'viewpress media import --help' for full options.
+`);
 }
 
 function showMediaImportHelp(): void {
-  process.stdout.write('Usage: viewpress media import --video-id <id> --url <https-url> [--name <name>] [--json]\n');
+  process.stdout.write(`Usage: viewpress media import --video-id <id> --url <https-url> [options]
+
+Options:
+  --name <name>    Asset name, 1 to 120 characters
+  --json
+`);
 }

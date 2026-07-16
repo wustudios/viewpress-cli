@@ -245,7 +245,20 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
 }
 
 function showVideosHelp(): void {
-  process.stdout.write(`Usage: viewpress videos <command>\n\nCommands:\n  list --project-id <id> [--json]\n  create --project-id <id> --name <name> [--json]\n  generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n  estimate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n  motion-transfer --video-id <id> --name <name> --image-asset-id <id> --motion-video-asset-id <id> [options]\n  talking-image --video-id <id> --name <name> --image-asset-id <id> --audio-asset-id <id> [options]\n  ugc-ad --video-id <id> --name <name> --subject-description <text> --dialogue <text> --reference-image-asset-id <id>... --duration-sec <4|6|8|10> [options]\n  timelapse-scene --video-id <id> --name <name> --step-description <text> --start-image-asset-id <id> [options]\n\nGenerate and estimate options:\n  --aspect-ratio <1:1|9:16|16:9>       Default: 9:16\n  --audio | --no-audio                 Default: --audio\n  --start-image-asset-id <id>\n  --end-image-asset-id <id>\n  --reference-image-asset-id <id>       Repeat up to 9 times\n  --reference-video-asset-id <id>       Repeat up to 3 times\n  --reference-audio-asset-id <id>       Repeat up to 3 times\n  --negative-prompt <text>\n  --json\n\nRun a command with --help to see its full options.\n`);
+  process.stdout.write(`Usage: viewpress videos <command>
+
+Commands:
+  list             List videos in a project
+  create           Create a video
+  generate         Generate a video from a prompt
+  estimate         Estimate video generation credits
+  motion-transfer  Apply a motion video's movement to an image
+  talking-image    Make an image speak an audio track
+  ugc-ad           Generate a UGC-style ad video
+  timelapse-scene  Generate a timelapse from a start image
+
+Run 'viewpress videos <command> --help' for full options.
+`);
 }
 
 function showVideoCommandHelp(command: 'create' | 'list'): void {

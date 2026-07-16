@@ -424,5 +424,20 @@ function writeVideoGenerationResponse(
 }
 
 function showVideoGenerationHelp(command: 'estimate' | 'generate'): void {
-  process.stdout.write(`Usage: viewpress videos ${command} --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n\nOptions:\n  --aspect-ratio <1:1|9:16|16:9>       Default: 9:16\n  --audio | --no-audio                 Default: --audio\n  --start-image-asset-id <id>\n  --end-image-asset-id <id>\n  --reference-image-asset-id <id>       Repeat up to 9 times\n  --reference-video-asset-id <id>       Repeat up to 3 times\n  --reference-audio-asset-id <id>       Repeat up to 3 times\n  --negative-prompt <text>\n  --json\n`);
+  process.stdout.write(`Usage: viewpress videos ${command} --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <1..15> [options]
+
+Options:
+  --aspect-ratio <1:1|9:16|16:9>     Default: 9:16
+  --audio | --no-audio               Default: --audio
+  --start-image-asset-id <id>
+  --end-image-asset-id <id>
+  --reference-image-asset-id <id>    Repeat up to 9 times
+  --reference-video-asset-id <id>    Repeat up to 3 times
+  --reference-audio-asset-id <id>    Repeat up to 3 times
+  --negative-prompt <text>
+  --json
+
+Models: V-STANDARD, V-LITE, V-PRO, V-PRO-TRANSITION, V-ULTRA, V-UGC.
+Duration limits vary by model; the CLI reports the allowed range on error.
+`);
 }

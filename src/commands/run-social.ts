@@ -775,11 +775,30 @@ function throwWaitTimeout(postId: string, waitTimeoutSec: number): never {
 }
 
 function showSocialHelp(): void {
-  process.stdout.write(`Usage: viewpress social <resource> <command>\n\nResources:\n  accounts list|connect\n  posts create|list|get|wait|cancel\n`);
+  process.stdout.write(`Usage: viewpress social <resource> <command>
+
+Commands:
+  accounts list     List connected social accounts
+  accounts connect  Start connecting a social account
+  posts create      Schedule a social post
+  posts list        List social posts
+  posts get         Get one social post
+  posts wait        Wait for a social post to publish
+  posts cancel      Cancel a scheduled social post
+
+Run 'viewpress social <resource> <command> --help' for full options.
+`);
 }
 
 function showAccountsHelp(): void {
-  process.stdout.write(`Usage: viewpress social accounts <command>\n\nCommands:\n  list --project-id <id> [--json]\n  connect --project-id <id> --platform <platform> [--json]\n`);
+  process.stdout.write(`Usage: viewpress social accounts <command>
+
+Commands:
+  list     List connected social accounts
+  connect  Start connecting a social account
+
+Run 'viewpress social accounts <command> --help' for full options.
+`);
 }
 
 function showAccountCommandHelp(command: 'connect' | 'list'): void {
@@ -788,24 +807,52 @@ function showAccountCommandHelp(command: 'connect' | 'list'): void {
     return;
   }
 
-  process.stdout.write('Usage: viewpress social accounts connect --project-id <id> --platform <platform> [--json]\n');
+  process.stdout.write('Usage: viewpress social accounts connect --project-id <id> --platform <tiktok|instagram|youtube> [--json]\n');
 }
 
 function showPostsHelp(): void {
-  process.stdout.write(`Usage: viewpress social posts <command>\n\nCommands:\n  create --asset-id <id> --platform <platform> --connection-id <id> [--publish-at <ISO>] [--caption <text>] [--options <file|->] [--json]\n  list --project-id <id> [--limit <1..200>] [--json]\n  get <post-id> [--json]\n  wait <post-id> [--wait-timeout <seconds>] [--poll-interval <seconds>] [--json]\n  cancel <post-id> [--json]\n`);
+  process.stdout.write(`Usage: viewpress social posts <command>
+
+Commands:
+  create  Schedule a social post
+  list    List social posts
+  get     Get one social post
+  wait    Wait for a social post to publish
+  cancel  Cancel a scheduled social post
+
+Run 'viewpress social posts <command> --help' for full options.
+`);
 }
 
 function showPostCommandHelp(command: 'cancel' | 'create' | 'get' | 'list' | 'wait'): void {
   if (command === 'create') {
-    process.stdout.write('Usage: viewpress social posts create --asset-id <id> --platform <platform> --connection-id <id> [--publish-at <ISO>] [--caption <text>] [--options <file|->] [--json]\n');
+    process.stdout.write(`Usage: viewpress social posts create --asset-id <id> --platform <tiktok|instagram|youtube> --connection-id <id> [options]
+
+Options:
+  --publish-at <iso-datetime>    Schedule time with a UTC offset; default: publish now
+  --caption <text>               At most 2200 characters
+  --options <path|->             Platform options JSON
+  --json
+`);
     return;
   }
   if (command === 'list') {
-    process.stdout.write('Usage: viewpress social posts list --project-id <id> [--limit <1..200>] [--json]\n');
+    process.stdout.write(`Usage: viewpress social posts list --project-id <id> [options]
+
+Options:
+  --limit <1..200>    Default: 50
+  --json
+`);
     return;
   }
   if (command === 'wait') {
-    process.stdout.write('Usage: viewpress social posts wait <post-id> [--wait-timeout <seconds>] [--poll-interval <seconds>] [--json]\n');
+    process.stdout.write(`Usage: viewpress social posts wait <post-id> [options]
+
+Options:
+  --wait-timeout <seconds>     Default: 600
+  --poll-interval <seconds>    Default: 2
+  --json
+`);
     return;
   }
 

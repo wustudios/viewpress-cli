@@ -79,9 +79,13 @@ function getAuthCommandPath(command: string | undefined): string {
 
 function showAuthCommandHelp(command: 'login' | 'logout' | 'set-key' | 'status'): void {
   if (command === 'set-key') {
-    process.stdout.write('Usage: viewpress auth set-key\n\nRead a vp_ API key from stdin or VIEWPRESS_API_KEY.\n');
+    process.stdout.write('Usage: viewpress auth set-key [--json]\n\nRead a vp_ API key from stdin or VIEWPRESS_API_KEY.\n');
+    return;
+  }
+  if (command === 'login') {
+    process.stdout.write('Usage: viewpress auth login\n');
     return;
   }
 
-  process.stdout.write(`Usage: viewpress auth ${command}\n`);
+  process.stdout.write(`Usage: viewpress auth ${command} [--json]\n`);
 }
