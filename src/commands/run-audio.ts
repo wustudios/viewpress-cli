@@ -39,7 +39,7 @@ const emotionSchema = z.enum(['happy', 'sad', 'angry', 'fearful', 'disgusted', '
 
 interface MusicInput {
   description: string | undefined;
-  durationSeconds: string | undefined;
+  durationSec: string | undefined;
   instrumentalOnly: boolean;
   name: string | undefined;
   prompt: string | undefined;
@@ -57,7 +57,7 @@ interface MusicArgument {
 
 interface SfxInput {
   description: string | undefined;
-  durationSeconds: string;
+  durationSec: string;
   name: string | undefined;
   prompt: string | undefined;
   promptFile: string | undefined;
@@ -303,11 +303,11 @@ async function generateMusic(arguments_: string[]): Promise<void> {
   if (!style.success) {
     throw new CommandUsageError('Music generate requires --style with at least 2 characters.');
   }
-  const durationSeconds = getRequiredNumber(input.durationSeconds, 3, 480, 'Music --duration-seconds must be a number from 3 to 480.');
+  const durationSec = getRequiredNumber(input.durationSec, 3, 480, 'Music --duration-sec must be a number from 3 to 480.');
   const response = await getApiResponse({
     body: {
       description: input.description,
-      duration_seconds: durationSeconds,
+      duration_seconds: durationSec,
       instrumental_only: input.instrumentalOnly,
       name: common.name,
       prompt,
@@ -323,7 +323,7 @@ async function generateMusic(arguments_: string[]): Promise<void> {
 
 function getMusicInput(arguments_: string[]): MusicInput {
   const input: MusicInput = {
-    description: undefined, durationSeconds: undefined, instrumentalOnly: true, name: undefined,
+    description: undefined, durationSec: undefined, instrumentalOnly: true, name: undefined,
     prompt: undefined, promptFile: undefined, style: undefined, videoId: undefined,
   };
   const seen = new Set<string>();
@@ -361,8 +361,8 @@ function getMusicProperty(argument: string | undefined): keyof Omit<MusicInput, 
   if (argument === '--description') {
     return 'description';
   }
-  if (argument === '--duration-seconds') {
-    return 'durationSeconds';
+  if (argument === '--duration-sec') {
+    return 'durationSec';
   }
   if (argument === '--name') {
     return 'name';
@@ -386,12 +386,12 @@ async function generateSfx(arguments_: string[]): Promise<void> {
   const input = getSfxInput(arguments_);
   const common = getCommonValues({ label: 'SFX', name: input.name, videoId: input.videoId });
   const prompt = getRequiredPrompt(await getFileInput(input.prompt, input.promptFile), 'SFX');
-  const durationSeconds = getRequiredNumber(input.durationSeconds, 0.5, 10, 'SFX --duration-seconds must be a number from 0.5 to 10.');
+  const durationSec = getRequiredNumber(input.durationSec, 0.5, 10, 'SFX --duration-sec must be a number from 0.5 to 10.');
   const promptInfluence = getRequiredNumber(input.promptInfluence, 0, 1, 'SFX --prompt-influence must be a number from 0 to 1.');
   const response = await getApiResponse({
     body: {
       description: input.description,
-      duration_seconds: durationSeconds,
+      duration_seconds: durationSec,
       name: common.name,
       prompt,
       prompt_influence: promptInfluence,
@@ -406,7 +406,7 @@ async function generateSfx(arguments_: string[]): Promise<void> {
 
 function getSfxInput(arguments_: string[]): SfxInput {
   const input: SfxInput = {
-    description: undefined, durationSeconds: '2', name: undefined,
+    description: undefined, durationSec: '2', name: undefined,
     prompt: undefined, promptFile: undefined, promptInfluence: '0.5', videoId: undefined,
   };
   const seen = new Set<string>();
@@ -437,8 +437,8 @@ function getSfxProperty(argument: string | undefined): keyof SfxInput | null {
   if (argument === '--description') {
     return 'description';
   }
-  if (argument === '--duration-seconds') {
-    return 'durationSeconds';
+  if (argument === '--duration-sec') {
+    return 'durationSec';
   }
   if (argument === '--name') {
     return 'name';
@@ -598,7 +598,7 @@ function showAudioGenerateHelp(resource: 'music' | 'sfx' | 'speech'): void {
     return;
   }
   if (resource === 'music') {
-    process.stdout.write('Usage: viewpress music generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --style <style> --duration-seconds <seconds> [options]\n');
+    process.stdout.write('Usage: viewpress music generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --style <style> --duration-sec <seconds> [options]\n');
     return;
   }
   process.stdout.write('Usage: viewpress sfx generate --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) [options]\n');
