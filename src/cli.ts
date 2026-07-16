@@ -95,6 +95,10 @@ async function runCli(cliArguments: string[]): Promise<number> {
 }
 
 function showRootHelp(): number {
+  if (getRuntimeOptions().json) {
+    return writeError(new CommandUsageError('A command is required with --json.'));
+  }
+
   showHelp();
   return 0;
 }
