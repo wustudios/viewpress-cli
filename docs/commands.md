@@ -29,8 +29,8 @@ Linux, the CLI sets the directory to mode `0700` and the file to `0600`.
 | --- | --- |
 | `viewpress auth login` | Open the one-time browser flow. This client is implemented, but the current production server does not expose the required endpoints. It is rejected in noninteractive mode. |
 | `viewpress auth set-key` | Read a `vp_` key from `VIEWPRESS_API_KEY` or stdin and save it. No key argument is accepted. |
-| `viewpress auth status` | Show the API URL and whether the key comes from the environment or config file. Returns exit `3` when unsigned in. |
-| `viewpress auth logout` | Remove the stored key. It does not unset `VIEWPRESS_API_KEY`. |
+| `viewpress auth status` | Show the API URL and whether the key comes from the environment or config file. Exits `3` when not signed in; human output then suggests `auth set-key`, and JSON output reports `{"apiUrl":...,"authenticated":false}` as data. |
+| `viewpress auth logout` | Remove the stored key and report whether one was removed (`No API key is stored.`, or `removed` in JSON). It does not unset `VIEWPRESS_API_KEY`. |
 
 Auth commands accept no command-specific flags. Global `--json` gives JSON
 output for `set-key`, `status`, and `logout`. Browser login is unavailable with
@@ -80,7 +80,7 @@ fields. Both require:
 Optional flags:
 
 - `--aspect-ratio <1:1|9:16|16:9>`; default `9:16`
-- `--with-audio` or `--no-audio`; default `--with-audio`
+- `--audio` or `--no-audio`; default `--audio`
 - `--start-image-asset-id <id>`
 - `--end-image-asset-id <id>`
 - repeated `--reference-image-asset-id <id>`; CLI cap 9
@@ -111,7 +111,7 @@ price calculation, not a generation preflight.
 
 - `--character-orientation <image|video>`; default `video`
 - `--prompt <text>` or `--prompt-file <path|->`; maximum 2,500 characters
-- `--keep-original-sound` or `--no-original-sound`; default keep
+- `--keep-original-sound` or `--no-keep-original-sound`; default keep
 - `--json`
 
 `viewpress videos talking-image` requires `--video-id`, `--name`,
@@ -167,13 +167,13 @@ Optional flags:
 
 `viewpress music generate` requires `--video-id`, `--name`, one of
 `--prompt <text>` or `--prompt-file <path|->`, `--style <at least 2 chars>`, and
-`--duration-seconds <3..480>`. Optional: `--instrumental-only` or
+`--duration-sec <3..480>`. Optional: `--instrumental-only` or
 `--no-instrumental-only` (default instrumental), `--description <text>`, and
 `--json`.
 
 `viewpress sfx generate` requires `--video-id`, `--name`, and one of
 `--prompt <text>` or `--prompt-file <path|->`. Optional:
-`--duration-seconds <0.5..10>` (default `2`), `--prompt-influence <0..1>`
+`--duration-sec <0.5..10>` (default `2`), `--prompt-influence <0..1>`
 (default `0.5`), `--description <text>`, and `--json`.
 
 Audio names have 1 to 120 characters. Music and SFX prompts need at least 3.
@@ -181,7 +181,7 @@ Audio names have 1 to 120 characters. Music and SFX prompts need at least 3.
 ## Renders and imports
 
 `viewpress renders create` requires `--video-id`, `--name <1..120 chars>`, and
-`--timeline <file|->`. The timeline file must contain a JSON object with at
+`--timeline <path|->`. The timeline file must contain a JSON object with at
 least one `tracks` entry and a positive integer `durationInFrames`. Optional
 `fps` must be a positive integer. `backgroundColor` and other timeline fields
 pass through to the server. `--json` is optional.
@@ -192,9 +192,10 @@ command for them; see the [API reference](api.md).
 
 `viewpress media import` requires `--video-id` and `--url <https-url>`.
 The CLI requires HTTPS without embedded credentials and rejects literal
-loopback, private, link-local, benchmark, carrier-grade NAT, multicast, and
-private IPv6 hostnames. It does not resolve hostnames, so its checks are a
-client-side convenience rather than a network boundary.
+loopback, unspecified (`0.*`, `[::]`), private, link-local, benchmark,
+carrier-grade NAT, multicast, and private IPv6 hostnames. It does not resolve
+hostnames, so its checks are a client-side convenience rather than a network
+boundary.
 Optional: `--name <1..120 chars>` and `--json`. A successful import is ready
 immediately and returns `assetId`, `status`, `kind`, and `mimeType`.
 
@@ -255,7 +256,7 @@ The wait timeout is a wall-clock limit and also bounds each in-flight poll.
 | --- | --- | --- |
 | `viewpress social accounts list` | `--project-id <id>` | `--json` |
 | `viewpress social accounts connect` | `--project-id <id>`, `--platform <tiktok\|instagram\|youtube>` | `--json` |
-| `viewpress social posts create` | `--asset-id <id>`, `--platform <tiktok\|instagram\|youtube>`, `--connection-id <id>` | `--publish-at <ISO date with offset>`, `--caption <max 2200 chars>`, `--options <file|->`, `--json` |
+| `viewpress social posts create` | `--asset-id <id>`, `--platform <tiktok\|instagram\|youtube>`, `--connection-id <id>` | `--publish-at <iso-datetime>`, `--caption <max 2200 chars>`, `--options <path|->`, `--json` |
 | `viewpress social posts list` | `--project-id <id>` | `--limit <1..200>` (default `50`), `--json` |
 | `viewpress social posts get` | `<post-id>` | `--json` |
 | `viewpress social posts wait` | `<post-id>` | `--wait-timeout <seconds>` (default `600`), `--poll-interval <seconds>` (default `2`), `--json` |
@@ -269,8 +270,8 @@ CLI sends YouTube fields under `options.youtube` and TikTok fields under
 (`PUBLIC_TO_EVERYONE`, `MUTUAL_FOLLOW_FRIENDS`,
 `FOLLOWER_OF_CREATOR`, or `SELF_ONLY`), `title` (max 2,200),
 `disable_comment`, `disable_duet`, `disable_stitch`, `brand_content_toggle`,
-`brand_organic_toggle`, and `is_aigc`. Instagram currently accepts an empty
-object only.
+`brand_organic_toggle`, and `is_aigc`. Instagram has no option fields: pass an
+empty JSON object or omit `--options`, and the CLI sends no `options` field.
 
 `--publish-at` accepts an ISO datetime with a UTC or numeric offset. The CLI
 normalizes it to the UTC `Z` form required by the API.
@@ -288,9 +289,18 @@ whole value from stdin. A command can use one stdin-backed input. A direct
 
 ## Output contract
 
-Human success data is written to stdout. Empty lists print a short `No ...`
-line. Interactive wait progress and logout environment warnings use stderr.
-Errors always use stderr.
+Human success data is written to stdout. Lists print padded aligned columns
+when stdout is a terminal and tab-separated fields when piped. List timestamps
+(`createdAt`, `publishAt`, `connectedAt`) are ISO-8601, and credit amounts
+print with a `credits` unit. Empty lists print a short `No ...` line.
+
+Interactive wait progress and logout environment warnings use stderr. When
+stderr is a terminal, `assets wait` and `social posts wait` rewrite one status
+line in place (`assets wait` includes progress percent) and clear it before
+the final result.
+
+Errors always use stderr. Human usage errors end with a
+`Run 'viewpress <command> --help' for usage.` line.
 
 JSON success is one line:
 
@@ -304,7 +314,8 @@ JSON error is one line on stderr:
 {"ok":false,"error":{"type":"usage_error","message":"..."}}
 ```
 
-API errors may add `status` and `details` to `error`. JSON mode writes no
-progress lines. Exit codes are `0` success, `1` API/terminal/unexpected error,
+A resource command without a subcommand fails in JSON mode with a one-line
+usage error and exit `2`. API errors may add `status` and `details` to
+`error`. JSON mode writes no progress lines. Exit codes are `0` success, `1` API/terminal/unexpected error,
 `2` usage or config, `3` authentication, `4` timeout, `5` transport, `6` file
 I/O, and `130` interruption.

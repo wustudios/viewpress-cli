@@ -76,7 +76,9 @@ reference](docs/api.md) for the server surface.
 
 ## Output and automation
 
-Human output goes to stdout. Errors and interactive wait notices go to stderr.
+Human output goes to stdout. Lists print aligned columns on a terminal and
+tab-separated fields when piped. Errors and interactive wait notices go to
+stderr; usage errors point at the matching `--help`.
 `--json` writes one success document to stdout and disables interaction:
 
 ```json
