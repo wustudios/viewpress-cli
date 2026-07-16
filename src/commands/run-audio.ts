@@ -272,7 +272,7 @@ function getSpeechOptions(input: SpeechInput, textInput: string | undefined): {
   voiceRecordId: string | undefined;
   vol: number | undefined;
 } {
-  const common = getCommonValues(input.videoId, input.name);
+  const common = getCommonValues({ label: 'Speech', name: input.name, videoId: input.videoId });
   const text = speechTextSchema.safeParse(textInput);
   if (!text.success) {
     throw new CommandUsageError('Speech generate requires --text or --text-file with 1 to 10000 characters.');
@@ -297,7 +297,7 @@ function getSpeechOptions(input: SpeechInput, textInput: string | undefined): {
 
 async function generateMusic(arguments_: string[]): Promise<void> {
   const input = getMusicInput(arguments_);
-  const common = getCommonValues(input.videoId, input.name);
+  const common = getCommonValues({ label: 'Music', name: input.name, videoId: input.videoId });
   const prompt = getRequiredPrompt(await getFileInput(input.prompt, input.promptFile), 'Music');
   const style = styleSchema.safeParse(input.style);
   if (!style.success) {
@@ -384,7 +384,7 @@ function getMusicProperty(argument: string | undefined): keyof Omit<MusicInput, 
 
 async function generateSfx(arguments_: string[]): Promise<void> {
   const input = getSfxInput(arguments_);
-  const common = getCommonValues(input.videoId, input.name);
+  const common = getCommonValues({ label: 'SFX', name: input.name, videoId: input.videoId });
   const prompt = getRequiredPrompt(await getFileInput(input.prompt, input.promptFile), 'SFX');
   const durationSeconds = getRequiredNumber(input.durationSeconds, 0.5, 10, 'SFX --duration-seconds must be a number from 0.5 to 10.');
   const promptInfluence = getRequiredNumber(input.promptInfluence, 0, 1, 'SFX --prompt-influence must be a number from 0 to 1.');
@@ -466,15 +466,15 @@ function getRequiredPrompt(promptInput: string | undefined, label: string): stri
   return prompt.data;
 }
 
-function getCommonValues(videoIdInput: string | undefined, nameInput: string | undefined): { name: string; videoId: string } {
-  if (!videoIdInput) {
-    throw new CommandUsageError('Audio generate commands require --video-id.');
+function getCommonValues(values: { label: string; name: string | undefined; videoId: string | undefined }): { name: string; videoId: string } {
+  if (!values.videoId) {
+    throw new CommandUsageError(`${values.label} generate requires --video-id.`);
   }
-  const name = nameSchema.safeParse(nameInput);
+  const name = nameSchema.safeParse(values.name);
   if (!name.success) {
-    throw new CommandUsageError('Audio generate commands require --name with 1 to 120 characters.');
+    throw new CommandUsageError(`${values.label} generate requires --name with 1 to 120 characters.`);
   }
-  return { name: name.data, videoId: videoIdInput };
+  return { name: name.data, videoId: values.videoId };
 }
 
 function guardNewOption(seen: Set<string>, property: string, option: string): void {
