@@ -107,6 +107,11 @@ interface DownloadInput {
   output: string | undefined;
 }
 
+interface WaitInput {
+  pollInterval: string;
+  waitTimeout: string;
+}
+
 export async function runAssets(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -260,43 +265,32 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
   const deadline = Date.now() + options.waitTimeoutSec * 1000;
 
   while (Date.now() <= deadline) {
-    const remainingRequestMs = deadline - Date.now();
-    if (remainingRequestMs <= 0) {
-      throwWaitTimeout(options.assetId, options.waitTimeoutSec);
-    }
     const asset = await getAssetBeforeDeadline({
-      assetId: options.assetId,
-      deadline,
-      remainingMs: remainingRequestMs,
-      waitTimeoutSec: options.waitTimeoutSec,
+      assetId: options.assetId, deadline, waitTimeoutSec: options.waitTimeoutSec,
     });
     if (asset.status === 'ready') {
       writeAsset(asset);
       return;
     }
-    if (asset.status === 'error' || asset.status === 'validation_error' || asset.status === 'canceled') {
-      throw new CliError({
-        exitCode: 1,
-        message: `Asset ${asset.id} ended with status ${asset.status}${asset.error ? `: ${asset.error}` : '.'}`,
-        type: 'terminal_error',
-      });
-    }
+    guardAssetActive(asset);
     writeWaitNotice(asset);
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
-      throwWaitTimeout(asset.id, options.waitTimeoutSec);
-    }
-    await Bun.sleep(Math.min(options.pollIntervalSec * 1000, remainingMs));
+    await sleepBeforeNextPoll({
+      assetId: asset.id, deadline, pollIntervalSec: options.pollIntervalSec, waitTimeoutSec: options.waitTimeoutSec,
+    });
   }
 
   throwWaitTimeout(options.assetId, options.waitTimeoutSec);
 }
 
 async function getAssetBeforeDeadline(
-  arguments_: { assetId: string; deadline: number; remainingMs: number; waitTimeoutSec: number },
+  arguments_: { assetId: string; deadline: number; waitTimeoutSec: number },
 ): Promise<z.infer<typeof assetSchema>> {
+  const remainingMs = arguments_.deadline - Date.now();
+  if (remainingMs <= 0) {
+    throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
+  }
   try {
-    const asset = await getAsset(arguments_.assetId, arguments_.remainingMs);
+    const asset = await getAsset(arguments_.assetId, remainingMs);
     if (Date.now() >= arguments_.deadline) {
       throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
     }
@@ -309,37 +303,69 @@ async function getAssetBeforeDeadline(
   }
 }
 
+function guardAssetActive(asset: z.infer<typeof assetSchema>): void {
+  if (asset.status === 'error' || asset.status === 'validation_error' || asset.status === 'canceled') {
+    throw new CliError({
+      exitCode: 1,
+      message: `Asset ${asset.id} ended with status ${asset.status}${asset.error ? `: ${asset.error}` : '.'}`,
+      type: 'terminal_error',
+    });
+  }
+}
+
+async function sleepBeforeNextPoll(values: {
+  assetId: string;
+  deadline: number;
+  pollIntervalSec: number;
+  waitTimeoutSec: number;
+}): Promise<void> {
+  const remainingMs = values.deadline - Date.now();
+  if (remainingMs <= 0) {
+    throwWaitTimeout(values.assetId, values.waitTimeoutSec);
+  }
+  await Bun.sleep(Math.min(values.pollIntervalSec * 1000, remainingMs));
+}
+
 function getWaitOptions(arguments_: string[]): {
   assetId: string;
   pollIntervalSec: number;
   waitTimeoutSec: number;
 } {
   const assetId = getAssetId(arguments_, 'wait');
-  let pollInterval = '2';
-  let waitTimeout = '600';
-  const seen = new Set<string>();
-
-  for (let index = 1; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-    if (argument === '--poll-interval' || argument === '--wait-timeout') {
-      guardNewOption(seen, argument, argument);
-      const value = getOptionValue(arguments_, index, argument);
-      index += 1;
-      if (argument === '--poll-interval') {
-        pollInterval = value;
-      } else {
-        waitTimeout = value;
-      }
-      continue;
-    }
-    throw new CommandUsageError(`Unknown or repeated assets wait option: ${String(argument)}`);
-  }
-
+  const input = getWaitInput(arguments_.slice(1));
   return {
     assetId,
-    pollIntervalSec: getPositiveNumber(pollInterval, '--poll-interval'),
-    waitTimeoutSec: getPositiveNumber(waitTimeout, '--wait-timeout'),
+    pollIntervalSec: getPositiveNumber(input.pollInterval, '--poll-interval'),
+    waitTimeoutSec: getPositiveNumber(input.waitTimeout, '--wait-timeout'),
   };
+}
+
+function getWaitInput(arguments_: string[]): WaitInput {
+  const input: WaitInput = { pollInterval: '2', waitTimeout: '600' };
+  const seen = new Set<string>();
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    const property = getWaitProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated assets wait option: ${String(argument)}`);
+    }
+    guardNewOption(seen, property, String(argument));
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
+  }
+
+  return input;
+}
+
+function getWaitProperty(argument: string | undefined): keyof WaitInput | null {
+  if (argument === '--poll-interval') {
+    return 'pollInterval';
+  }
+  if (argument === '--wait-timeout') {
+    return 'waitTimeout';
+  }
+  return null;
 }
 
 async function downloadAssetCommand(arguments_: string[]): Promise<void> {

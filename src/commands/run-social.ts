@@ -512,42 +512,31 @@ async function waitForPost(arguments_: string[]): Promise<void> {
   const deadline = Date.now() + options.waitTimeoutSec * 1000;
 
   while (Date.now() <= deadline) {
-    const remainingRequestMs = deadline - Date.now();
-    if (remainingRequestMs <= 0) {
-      throwWaitTimeout(options.postId, options.waitTimeoutSec);
-    }
     const post = await getPostBeforeDeadline({
-      deadline,
-      postId: options.postId,
-      remainingMs: remainingRequestMs,
-      waitTimeoutSec: options.waitTimeoutSec,
+      deadline, postId: options.postId, waitTimeoutSec: options.waitTimeoutSec,
     });
     if (post.state === 'published') {
       writePost(post);
       return;
     }
-    if (post.state === 'failed' || post.state === 'canceled') {
-      throw new CliError({
-        exitCode: 1,
-        message: `Social post ${post.id} ended with state ${post.state}${post.errorMessage ? `: ${post.errorMessage}` : '.'}`,
-        type: 'terminal_error',
-      });
-    }
+    guardPostActive(post);
     writeWaitNotice(post);
-    const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
-      throwWaitTimeout(post.id, options.waitTimeoutSec);
-    }
-    await Bun.sleep(Math.min(options.pollIntervalSec * 1000, remainingMs));
+    await sleepBeforeNextPoll({
+      deadline, pollIntervalSec: options.pollIntervalSec, postId: post.id, waitTimeoutSec: options.waitTimeoutSec,
+    });
   }
   throwWaitTimeout(options.postId, options.waitTimeoutSec);
 }
 
 async function getPostBeforeDeadline(
-  arguments_: { deadline: number; postId: string; remainingMs: number; waitTimeoutSec: number },
+  arguments_: { deadline: number; postId: string; waitTimeoutSec: number },
 ): Promise<z.infer<typeof postSchema>> {
+  const remainingMs = arguments_.deadline - Date.now();
+  if (remainingMs <= 0) {
+    throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
+  }
   try {
-    const post = await getPost(arguments_.postId, arguments_.remainingMs);
+    const post = await getPost(arguments_.postId, remainingMs);
     if (Date.now() >= arguments_.deadline) {
       throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
     }
@@ -558,6 +547,29 @@ async function getPostBeforeDeadline(
     }
     throw error;
   }
+}
+
+function guardPostActive(post: z.infer<typeof postSchema>): void {
+  if (post.state === 'failed' || post.state === 'canceled') {
+    throw new CliError({
+      exitCode: 1,
+      message: `Social post ${post.id} ended with state ${post.state}${post.errorMessage ? `: ${post.errorMessage}` : '.'}`,
+      type: 'terminal_error',
+    });
+  }
+}
+
+async function sleepBeforeNextPoll(values: {
+  deadline: number;
+  pollIntervalSec: number;
+  postId: string;
+  waitTimeoutSec: number;
+}): Promise<void> {
+  const remainingMs = values.deadline - Date.now();
+  if (remainingMs <= 0) {
+    throwWaitTimeout(values.postId, values.waitTimeoutSec);
+  }
+  await Bun.sleep(Math.min(values.pollIntervalSec * 1000, remainingMs));
 }
 
 function getWaitOptions(arguments_: string[]): {
