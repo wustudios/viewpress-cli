@@ -28,7 +28,7 @@ export async function getApiResponse<ResponseData>(
   if (!config.apiKey) {
     throw new CliError({
       exitCode: 3,
-      message: 'Sign in with `viewpress auth login` or set VIEWPRESS_API_KEY.',
+      message: 'Set VIEWPRESS_API_KEY or pipe a key to `viewpress auth set-key`.',
       type: 'authentication_error',
     });
   }
