@@ -409,24 +409,36 @@ async function readPlatformOptions(
     return undefined;
   }
   const text = optionsFile === '-' ? await new Response(Bun.stdin.stream()).text() : await readFile(optionsFile, 'utf8');
-  let value: unknown;
+  const value = parseOptionsJson(text);
+  return getPlatformOptions(value, platform);
+}
+
+function parseOptionsJson(text: string): unknown {
   try {
-    value = JSON.parse(text);
+    return JSON.parse(text);
   } catch {
     throw new CommandUsageError('Social posts --options must contain valid JSON.');
   }
-  const schema = platform === 'youtube'
-    ? youtubeOptionsSchema
-    : platform === 'tiktok' ? tiktokOptionsSchema : instagramOptionsSchema;
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) {
-    throw new CommandUsageError(`Social posts --options contains invalid ${platform} options.`);
-  }
+}
+
+function getPlatformOptions(value: unknown, platform: z.infer<typeof platformSchema>): Record<string, unknown> {
   if (platform === 'youtube') {
+    const parsed = youtubeOptionsSchema.safeParse(value);
+    if (!parsed.success) {
+      throw new CommandUsageError('Social posts --options contains invalid youtube options.');
+    }
     return { youtube: parsed.data };
   }
   if (platform === 'tiktok') {
+    const parsed = tiktokOptionsSchema.safeParse(value);
+    if (!parsed.success) {
+      throw new CommandUsageError('Social posts --options contains invalid tiktok options.');
+    }
     return { tiktok: parsed.data };
+  }
+  const parsed = instagramOptionsSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new CommandUsageError('Social posts --options contains invalid instagram options.');
   }
   return parsed.data;
 }
