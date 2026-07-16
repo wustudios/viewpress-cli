@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -20,7 +21,6 @@ const timelineSchema = z.looseObject({
 });
 
 interface RenderInput {
-  json: boolean;
   name: string | undefined;
   timelineFile: string | undefined;
   videoId: string | undefined;
@@ -61,7 +61,7 @@ async function createRender(arguments_: string[]): Promise<void> {
     schema: renderResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -70,17 +70,11 @@ async function createRender(arguments_: string[]): Promise<void> {
 }
 
 function getRenderInput(arguments_: string[]): RenderInput {
-  const input: RenderInput = { json: false, name: undefined, timelineFile: undefined, videoId: undefined };
+  const input: RenderInput = { name: undefined, timelineFile: undefined, videoId: undefined };
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      input.json = true;
-      continue;
-    }
 
     const property = getRenderProperty(argument);
     if (property) {
@@ -130,7 +124,6 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
 }
 
 async function getRenderOptions(input: RenderInput): Promise<{
-  json: boolean;
   name: string;
   timeline: z.infer<typeof timelineSchema>;
   videoId: string;
@@ -150,7 +143,7 @@ async function getRenderOptions(input: RenderInput): Promise<{
 
   const timelineText = await readTimeline(input.timelineFile);
   const timeline = parseTimeline(timelineText);
-  return { json: input.json, name: name.data, timeline, videoId: input.videoId };
+  return { name: name.data, timeline, videoId: input.videoId };
 }
 
 async function readTimeline(timelineFile: string): Promise<string> {

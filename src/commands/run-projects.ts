@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -50,14 +51,14 @@ export async function runProjects(arguments_: string[]): Promise<number> {
 }
 
 async function listProjects(arguments_: string[]): Promise<void> {
-  const json = getJsonOption(arguments_);
+  guardNoArguments(arguments_);
   const response = await getApiResponse({
     method: 'GET',
     path: 'projects',
     schema: projectsResponseSchema,
   });
 
-  if (json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -81,7 +82,7 @@ async function createProject(arguments_: string[]): Promise<void> {
     schema: projectResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -89,17 +90,11 @@ async function createProject(arguments_: string[]): Promise<void> {
   process.stdout.write(`Created project ${response.name} (${response.id}).\n`);
 }
 
-function getCreateProjectOptions(arguments_: string[]): { json: boolean; name: string } {
-  let json = false;
+function getCreateProjectOptions(arguments_: string[]): { name: string } {
   let name: string | undefined;
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
 
     if (argument === '--name' && name === undefined) {
       name = getOptionValue(arguments_, index, '--name');
@@ -116,7 +111,7 @@ function getCreateProjectOptions(arguments_: string[]): { json: boolean; name: s
     throw new CommandUsageError('Projects create requires --name with 1 to 120 characters.');
   }
 
-  return { json, name: parsedName.data };
+  return { name: parsedName.data };
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
@@ -129,16 +124,10 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
   return value;
 }
 
-function getJsonOption(arguments_: string[]): boolean {
-  if (arguments_.length === 0) {
-    return false;
+function guardNoArguments(arguments_: string[]): void {
+  if (arguments_.length > 0) {
+    throw new CommandUsageError(`Unknown projects list option: ${String(arguments_[0])}`);
   }
-
-  if (arguments_.length === 1 && arguments_[0] === '--json') {
-    return true;
-  }
-
-  throw new CommandUsageError(`Unknown projects list option: ${String(arguments_[0])}`);
 }
 
 function showProjectsHelp(): void {

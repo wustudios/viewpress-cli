@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -38,7 +39,6 @@ const emotionSchema = z.enum(['happy', 'sad', 'angry', 'fearful', 'disgusted', '
 
 interface CommonInput {
   description: string | undefined;
-  json: boolean;
   name: string | undefined;
   prompt: string | undefined;
   promptFile: string | undefined;
@@ -48,7 +48,6 @@ interface CommonInput {
 interface SpeechInput {
   emotion: string | undefined;
   englishNormalization: boolean | undefined;
-  json: boolean;
   languageBoost: string | undefined;
   name: string | undefined;
   pitch: string | undefined;
@@ -122,14 +121,13 @@ async function generateSpeech(arguments_: string[]): Promise<void> {
     path: 'speech',
     schema: audioResponseSchema,
   });
-  writeAudioResponse('speech', response, options.json);
+  writeAudioResponse('speech', response);
 }
 
 function getSpeechInput(arguments_: string[]): SpeechInput {
   const input: SpeechInput = {
     emotion: undefined,
     englishNormalization: undefined,
-    json: false,
     languageBoost: undefined,
     name: undefined,
     pitch: undefined,
@@ -152,12 +150,6 @@ function getSpeechInput(arguments_: string[]): SpeechInput {
 
 function readSpeechArgument(arguments_: string[], index: number, input: SpeechInput, seen: Set<string>): number {
   const argument = arguments_[index];
-
-  if (argument === '--json') {
-    guardNewOption(seen, 'json', argument, 'speech');
-    input.json = true;
-    return index;
-  }
 
   if (argument === '--english-normalization' || argument === '--no-english-normalization') {
     guardNewOption(seen, 'englishNormalization', argument, 'speech');
@@ -209,7 +201,6 @@ function getSpeechProperty(argument: string | undefined): keyof Pick<
 function getSpeechOptions(input: SpeechInput, textInput: string | undefined): {
   emotion: z.infer<typeof emotionSchema> | undefined;
   englishNormalization: boolean | undefined;
-  json: boolean;
   languageBoost: string | undefined;
   name: string;
   pitch: number | undefined;
@@ -231,7 +222,6 @@ function getSpeechOptions(input: SpeechInput, textInput: string | undefined): {
   return {
     emotion,
     englishNormalization: input.englishNormalization,
-    json: input.json,
     languageBoost: input.languageBoost,
     name: common.name,
     pitch: getOptionalNumber(input.pitch, -12, 12, 'Speech --pitch must be an integer from -12 to 12.', true),
@@ -267,7 +257,7 @@ async function generateMusic(arguments_: string[]): Promise<void> {
     path: 'music',
     schema: audioResponseSchema,
   });
-  writeAudioResponse('music', response, common.json);
+  writeAudioResponse('music', response);
 }
 
 async function generateSfx(arguments_: string[]): Promise<void> {
@@ -289,7 +279,7 @@ async function generateSfx(arguments_: string[]): Promise<void> {
     path: 'sfx',
     schema: audioResponseSchema,
   });
-  writeAudioResponse('sfx', response, common.json);
+  writeAudioResponse('sfx', response);
 }
 
 function getCommonInput(
@@ -304,7 +294,7 @@ function getCommonInput(
   style: string | undefined;
 } {
   const result = {
-    common: { description: undefined, json: false, name: undefined, prompt: undefined, promptFile: undefined, videoId: undefined },
+    common: { description: undefined, name: undefined, prompt: undefined, promptFile: undefined, videoId: undefined },
     durationSeconds: defaults.durationSeconds,
     instrumentalOnly: defaults.instrumentalOnly,
     promptInfluence: defaults.promptInfluence,
@@ -327,11 +317,6 @@ function readCommonArgument(
   seen: Set<string>,
 ): number {
   const argument = arguments_[index];
-  if (argument === '--json') {
-    guardNewOption(seen, 'json', argument, resource);
-    result.common.json = true;
-    return index;
-  }
   if (resource === 'music' && (argument === '--instrumental-only' || argument === '--no-instrumental-only')) {
     guardNewOption(seen, 'instrumentalOnly', argument, resource);
     result.instrumentalOnly = argument === '--instrumental-only';
@@ -379,7 +364,6 @@ function setCommonProperty(result: ReturnType<typeof getCommonInput>, property: 
 
 function getCommonOptions(input: CommonInput, promptInput: string | undefined, label: string): {
   description: string | undefined;
-  json: boolean;
   name: string;
   prompt: string;
   videoId: string;
@@ -389,7 +373,7 @@ function getCommonOptions(input: CommonInput, promptInput: string | undefined, l
   if (!prompt.success) {
     throw new CommandUsageError(`${label} generate requires --prompt or --prompt-file with at least 3 characters.`);
   }
-  return { description: input.description, json: input.json, name: common.name, prompt: prompt.data, videoId: common.videoId };
+  return { description: input.description, name: common.name, prompt: prompt.data, videoId: common.videoId };
 }
 
 function getCommonValues(videoIdInput: string | undefined, nameInput: string | undefined): { name: string; videoId: string } {
@@ -471,8 +455,8 @@ function getOptionalEnum<Value extends string>(
   return parsed.data;
 }
 
-function writeAudioResponse(resource: string, response: z.infer<typeof audioResponseSchema>, json: boolean): void {
-  if (json) {
+function writeAudioResponse(resource: string, response: z.infer<typeof audioResponseSchema>): void {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }

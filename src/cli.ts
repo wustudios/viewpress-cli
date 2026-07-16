@@ -2,7 +2,7 @@
 
 import packageJson from '../package.json' with { type: 'json' };
 import { parseGlobalArguments } from './cli/parse-global-arguments.ts';
-import { setRuntimeOptions } from './cli/runtime-options.ts';
+import { getRuntimeOptions, setRuntimeOptions } from './cli/runtime-options.ts';
 import { runAssets } from './commands/run-assets.ts';
 import { runAuth } from './commands/run-auth.ts';
 import { runAudio } from './commands/run-audio.ts';
@@ -21,11 +21,6 @@ import { showVersion } from './commands/show-version.ts';
 import { writeError } from './output/write-error.ts';
 
 const rawArguments = Bun.argv.slice(2);
-setRuntimeOptions({
-  json: rawArguments.includes('--json'),
-  nonInteractive: rawArguments.includes('--json') || rawArguments.includes('--non-interactive'),
-  timeoutSec: 30,
-});
 
 try {
   const parsed = parseGlobalArguments(rawArguments);
@@ -37,6 +32,7 @@ try {
     process.exitCode = await runCli(parsed.arguments);
   }
 } catch (error) {
+  setRuntimeOptions({ ...getRuntimeOptions(), json: rawArguments.includes('--json') });
   process.exitCode = writeError(error);
 }
 

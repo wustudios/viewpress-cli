@@ -77,7 +77,6 @@ interface CreatePostInput {
   assetId: string | undefined;
   caption: string | undefined;
   connectionId: string | undefined;
-  json: boolean;
   optionsFile: string | undefined;
   platform: string | undefined;
   publishAt: string | undefined;
@@ -144,7 +143,7 @@ async function listAccounts(arguments_: string[]): Promise<void> {
     method: 'GET', path: 'social/accounts', query, schema: accountsResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -168,7 +167,7 @@ async function connectAccount(arguments_: string[]): Promise<void> {
     schema: connectionResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -176,22 +175,20 @@ async function connectAccount(arguments_: string[]): Promise<void> {
 }
 
 function getConnectOptions(arguments_: string[]): {
-  json: boolean;
   platform: z.infer<typeof platformSchema>;
   projectId: string;
 } {
   const values = getNamedOptions(arguments_, ['--platform', '--project-id'], 'accounts connect');
-  const platform = platformSchema.safeParse(values.options.get('--platform'));
-  if (!values.options.get('--project-id')) {
+  const platform = platformSchema.safeParse(values.get('--platform'));
+  if (!values.get('--project-id')) {
     throw new CommandUsageError('Social accounts connect requires --project-id.');
   }
   if (!platform.success) {
     throw new CommandUsageError('Social accounts connect requires --platform tiktok, instagram, or youtube.');
   }
   return {
-    json: values.json,
     platform: platform.data,
-    projectId: String(values.options.get('--project-id')),
+    projectId: String(values.get('--project-id')),
   };
 }
 
@@ -262,7 +259,7 @@ async function createPost(arguments_: string[]): Promise<void> {
     schema: createPostResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -271,7 +268,7 @@ async function createPost(arguments_: string[]): Promise<void> {
 
 function getCreatePostInput(arguments_: string[]): CreatePostInput {
   const input: CreatePostInput = {
-    assetId: undefined, caption: undefined, connectionId: undefined, json: false,
+    assetId: undefined, caption: undefined, connectionId: undefined,
     optionsFile: undefined, platform: undefined, publishAt: undefined,
   };
   const seen = new Set<string>();
@@ -286,11 +283,6 @@ function readCreatePostArgument(
   values: CreatePostArgument,
 ): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--json') {
-    guardNewOption(values.seen, 'json', argument, 'posts create');
-    values.input.json = true;
-    return values.index;
-  }
   const property = getCreatePostProperty(argument);
   if (!property) {
     throw new CommandUsageError(`Unknown or repeated social posts create option: ${String(argument)}`);
@@ -300,7 +292,7 @@ function readCreatePostArgument(
   return values.index + 1;
 }
 
-function getCreatePostProperty(argument: string | undefined): keyof Omit<CreatePostInput, 'json'> | null {
+function getCreatePostProperty(argument: string | undefined): keyof CreatePostInput | null {
   if (argument === '--asset-id') {
     return 'assetId';
   }
@@ -326,7 +318,6 @@ async function getCreatePostOptions(input: CreatePostInput): Promise<{
   assetId: string;
   caption: string | undefined;
   connectionId: string;
-  json: boolean;
   platform: z.infer<typeof platformSchema>;
   platformOptions: Record<string, unknown> | undefined;
   publishAt: string | undefined;
@@ -351,7 +342,6 @@ async function getCreatePostOptions(input: CreatePostInput): Promise<{
     assetId: input.assetId,
     caption: caption.data,
     connectionId: input.connectionId,
-    json: input.json,
     platform: platform.data,
     platformOptions,
     publishAt,
@@ -405,7 +395,7 @@ async function listPosts(arguments_: string[]): Promise<void> {
   const response = await getApiResponse({
     method: 'GET', path: 'social/posts', query, schema: postsResponseSchema,
   });
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -418,24 +408,25 @@ async function listPosts(arguments_: string[]): Promise<void> {
   }
 }
 
-function getListPostOptions(arguments_: string[]): { json: boolean; limit: number; projectId: string } {
+function getListPostOptions(arguments_: string[]): { limit: number; projectId: string } {
   const values = getNamedOptions(arguments_, ['--limit', '--project-id'], 'posts list');
-  const projectId = values.options.get('--project-id');
+  const projectId = values.get('--project-id');
   if (!projectId) {
     throw new CommandUsageError('Social posts list requires --project-id.');
   }
-  const limitValue = values.options.get('--limit') ?? '50';
+  const limitValue = values.get('--limit') ?? '50';
   const limit = Number(limitValue);
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new CommandUsageError('Social posts --limit must be an integer from 1 to 200.');
   }
-  return { json: values.json, limit, projectId };
+  return { limit, projectId };
 }
 
 async function getPostCommand(arguments_: string[]): Promise<void> {
-  const options = getPostAndJson(arguments_, 'get');
-  const post = await getPost(options.postId);
-  writePost(post, options.json);
+  const postId = getPostId(arguments_, 'get');
+  guardNoExtraOptions(arguments_, 'get');
+  const post = await getPost(postId);
+  writePost(post);
 }
 
 async function waitForPost(arguments_: string[]): Promise<void> {
@@ -454,7 +445,7 @@ async function waitForPost(arguments_: string[]): Promise<void> {
       waitTimeoutSec: options.waitTimeoutSec,
     });
     if (post.state === 'published') {
-      writePost(post, options.json);
+      writePost(post);
       return;
     }
     if (post.state === 'failed' || post.state === 'canceled') {
@@ -464,7 +455,7 @@ async function waitForPost(arguments_: string[]): Promise<void> {
         type: 'terminal_error',
       });
     }
-    writeWaitNotice(post, options.json);
+    writeWaitNotice(post);
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) {
       throwWaitTimeout(post.id, options.waitTimeoutSec);
@@ -492,7 +483,6 @@ async function getPostBeforeDeadline(
 }
 
 function getWaitOptions(arguments_: string[]): {
-  json: boolean;
   pollIntervalSec: number;
   postId: string;
   waitTimeoutSec: number;
@@ -500,25 +490,25 @@ function getWaitOptions(arguments_: string[]): {
   const postId = getPostId(arguments_, 'wait');
   const values = getNamedOptions(arguments_.slice(1), ['--poll-interval', '--wait-timeout'], 'posts wait');
   return {
-    json: values.json,
-    pollIntervalSec: getPositiveNumber(values.options.get('--poll-interval') ?? '2', '--poll-interval'),
+    pollIntervalSec: getPositiveNumber(values.get('--poll-interval') ?? '2', '--poll-interval'),
     postId,
-    waitTimeoutSec: getPositiveNumber(values.options.get('--wait-timeout') ?? '600', '--wait-timeout'),
+    waitTimeoutSec: getPositiveNumber(values.get('--wait-timeout') ?? '600', '--wait-timeout'),
   };
 }
 
 async function cancelPost(arguments_: string[]): Promise<void> {
-  const options = getPostAndJson(arguments_, 'cancel');
+  const postId = getPostId(arguments_, 'cancel');
+  guardNoExtraOptions(arguments_, 'cancel');
   await getApiResponse({
     method: 'DELETE',
-    path: `social/posts/${encodeURIComponent(options.postId)}`,
+    path: `social/posts/${encodeURIComponent(postId)}`,
     schema: z.undefined(),
   });
-  if (options.json) {
-    writeJson({ canceled: true, postId: options.postId });
+  if (getRuntimeOptions().json) {
+    writeJson({ canceled: true, postId });
     return;
   }
-  process.stdout.write(`Canceled social post ${options.postId}.\n`);
+  process.stdout.write(`Canceled social post ${postId}.\n`);
 }
 
 async function getPost(postId: string, timeoutMs?: number): Promise<z.infer<typeof postSchema>> {
@@ -530,28 +520,23 @@ async function getPost(postId: string, timeoutMs?: number): Promise<z.infer<type
   });
 }
 
-function getProjectOptions(arguments_: string[], command: string): { json: boolean; projectId: string } {
+function getProjectOptions(arguments_: string[], command: string): { projectId: string } {
   const values = getNamedOptions(arguments_, ['--project-id'], command);
-  const projectId = values.options.get('--project-id');
+  const projectId = values.get('--project-id');
   if (!projectId) {
     throw new CommandUsageError(`Social ${command} requires --project-id.`);
   }
-  return { json: values.json, projectId };
+  return { projectId };
 }
 
 function getNamedOptions(
   arguments_: string[],
   names: string[],
   command: string,
-): { json: boolean; options: Map<string, string> } {
-  let json = false;
+): Map<string, string> {
   const options = new Map<string, string>();
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
     if (argument && names.includes(argument) && !options.has(argument)) {
       options.set(argument, getOptionValue(arguments_, index, argument));
       index += 1;
@@ -559,18 +544,13 @@ function getNamedOptions(
     }
     throw new CommandUsageError(`Unknown or repeated social ${command} option: ${String(argument)}`);
   }
-  return { json, options };
+  return options;
 }
 
-function getPostAndJson(arguments_: string[], command: string): { json: boolean; postId: string } {
-  const postId = getPostId(arguments_, command);
-  if (arguments_.length === 1) {
-    return { json: false, postId };
+function guardNoExtraOptions(arguments_: string[], command: string): void {
+  if (arguments_.length > 1) {
+    throw new CommandUsageError(`Unknown or repeated social posts ${command} option: ${String(arguments_[1])}`);
   }
-  if (arguments_.length === 2 && arguments_[1] === '--json') {
-    return { json: true, postId };
-  }
-  throw new CommandUsageError(`Unknown or repeated social posts ${command} option: ${String(arguments_[1])}`);
 }
 
 function getPostId(arguments_: string[], command: string): string {
@@ -604,8 +584,8 @@ function getPositiveNumber(value: string, option: string): number {
   return number;
 }
 
-function writePost(post: z.infer<typeof postSchema>, json: boolean): void {
-  if (json) {
+function writePost(post: z.infer<typeof postSchema>): void {
+  if (getRuntimeOptions().json) {
     writeJson(post);
     return;
   }
@@ -618,8 +598,8 @@ function writePostLine(post: z.infer<typeof postSchema>): void {
   );
 }
 
-function writeWaitNotice(post: z.infer<typeof postSchema>, json: boolean): void {
-  if (json || getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
+function writeWaitNotice(post: z.infer<typeof postSchema>): void {
+  if (getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
     return;
   }
   process.stderr.write(`Waiting for social post ${post.id}: ${post.state}.\n`);

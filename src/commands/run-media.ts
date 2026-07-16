@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -14,7 +15,6 @@ const importResponseSchema = z.object({
 const nameSchema = z.string().min(1).max(120);
 
 interface MediaImportInput {
-  json: boolean;
   name: string | undefined;
   url: string | undefined;
   videoId: string | undefined;
@@ -54,7 +54,7 @@ async function importMedia(arguments_: string[]): Promise<void> {
     schema: importResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -63,7 +63,6 @@ async function importMedia(arguments_: string[]): Promise<void> {
 }
 
 function getMediaImportOptions(arguments_: string[]): {
-  json: boolean;
   name: string | undefined;
   url: string;
   videoId: string;
@@ -79,7 +78,6 @@ function getMediaImportOptions(arguments_: string[]): {
   }
 
   return {
-    json: input.json,
     name: input.name,
     url: getPublicHttpsUrl(input.url),
     videoId: input.videoId,
@@ -87,17 +85,11 @@ function getMediaImportOptions(arguments_: string[]): {
 }
 
 function getMediaImportInput(arguments_: string[]): MediaImportInput {
-  const input: MediaImportInput = { json: false, name: undefined, url: undefined, videoId: undefined };
+  const input: MediaImportInput = { name: undefined, url: undefined, videoId: undefined };
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      input.json = true;
-      continue;
-    }
 
     const property = getMediaProperty(argument);
     if (property) {

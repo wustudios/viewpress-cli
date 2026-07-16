@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -19,7 +20,6 @@ const referenceAssetIdsSchema = z.array(z.string()).min(1).max(6);
 
 interface ImageInput {
   aspectRatio: string;
-  json: boolean;
   model: string;
   name: string | undefined;
   prompt: string | undefined;
@@ -30,7 +30,6 @@ interface ImageInput {
 
 interface ImageOptions {
   aspectRatio: z.infer<typeof aspectRatioSchema>;
-  json: boolean;
   model: z.infer<typeof imageModelSchema>;
   name: string;
   prompt: string;
@@ -93,7 +92,7 @@ async function generateImage(arguments_: string[]): Promise<void> {
     path: 'images/generations',
     schema: imageResponseSchema,
   });
-  writeImageResponse(response, options.json);
+  writeImageResponse(response);
 }
 
 async function editImage(arguments_: string[]): Promise<void> {
@@ -110,7 +109,7 @@ async function editImage(arguments_: string[]): Promise<void> {
     path: 'images/edits',
     schema: imageResponseSchema,
   });
-  writeImageResponse(response, options.json);
+  writeImageResponse(response);
 }
 
 async function getImageOptions(arguments_: string[], needsReferences: boolean): Promise<ImageOptions> {
@@ -121,7 +120,7 @@ async function getImageOptions(arguments_: string[], needsReferences: boolean): 
 
 function getImageInput(arguments_: string[], needsReferences: boolean): ImageInput {
   const input: ImageInput = {
-    aspectRatio: '9:16', json: false, model: 'I-PRO', name: undefined, prompt: undefined,
+    aspectRatio: '9:16', model: 'I-PRO', name: undefined, prompt: undefined,
     promptFile: undefined, referenceAssetIds: [], videoId: undefined,
   };
   const seen = new Set<string>();
@@ -134,11 +133,6 @@ function getImageInput(arguments_: string[], needsReferences: boolean): ImageInp
 function readImageArgument(values: ImageArgument): number {
   const { arguments_, index, input, needsReferences, seen } = values;
   const argument = arguments_[index];
-  if (argument === '--json') {
-    guardNewImageOption(seen, 'json', argument);
-    input.json = true;
-    return index;
-  }
   if (argument === '--reference-asset-id' && needsReferences) {
     input.referenceAssetIds.push(getOptionValue(arguments_, index, argument));
     return index + 1;
@@ -221,7 +215,6 @@ function getValidatedImageOptions(values: {
   const format = getValidatedImageFormat(values.input, values.needsReferences);
   return {
     aspectRatio: format.aspectRatio,
-    json: values.input.json,
     model: format.model,
     name: text.name,
     prompt: text.prompt,
@@ -268,8 +261,8 @@ function getValidatedImageFormat(input: ImageInput, needsReferences: boolean): {
   return { aspectRatio: aspectRatio.data, model: model.data };
 }
 
-function writeImageResponse(response: z.infer<typeof imageResponseSchema>, json: boolean): void {
-  if (json) {
+function writeImageResponse(response: z.infer<typeof imageResponseSchema>): void {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }

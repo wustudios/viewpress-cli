@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -22,7 +23,6 @@ const genderSchema = z.enum(['male', 'female', 'neutral']);
 
 interface VoiceOptions {
   gender?: 'male' | 'female' | 'neutral';
-  json: boolean;
   limit?: number;
   projectId: string;
   query?: string;
@@ -30,7 +30,6 @@ interface VoiceOptions {
 
 interface VoiceInput {
   gender: string | undefined;
-  json: boolean;
   limit: string | undefined;
   projectId: string | undefined;
   query: string | undefined;
@@ -77,7 +76,7 @@ async function listVoices(arguments_: string[]): Promise<void> {
   const query = getVoiceQuery(options);
   const response = await getApiResponse({ method: 'GET', path: 'voices', query, schema: voicesResponseSchema });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -98,7 +97,7 @@ function getVoiceOptions(arguments_: string[]): VoiceOptions {
 
 function getVoiceInput(arguments_: string[]): VoiceInput {
   const input: VoiceInput = {
-    gender: undefined, json: false, limit: undefined, projectId: undefined, query: undefined,
+    gender: undefined, limit: undefined, projectId: undefined, query: undefined,
   };
   const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
@@ -110,11 +109,6 @@ function getVoiceInput(arguments_: string[]): VoiceInput {
 function readVoiceArgument(values: VoiceArgument): number {
   const { arguments_, index, input, seen } = values;
   const argument = arguments_[index];
-  if (argument === '--json') {
-    guardNewVoiceOption(seen, 'json', argument);
-    input.json = true;
-    return index;
-  }
   const property = getVoiceProperty(argument);
   if (!property) {
     throw new CommandUsageError(`Unknown or repeated voices list option: ${String(argument)}`);
@@ -162,7 +156,6 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
 
 function getValidatedVoiceOptions(options: {
   gender: string | undefined;
-  json: boolean;
   limit: string | undefined;
   projectId: string | undefined;
   query: string | undefined;
@@ -198,13 +191,12 @@ function getLimit(value: string | undefined): number | undefined {
 }
 
 function getVoiceOptionsResult(
-  options: { json: boolean; projectId: string; query: string | undefined },
+  options: { projectId: string; query: string | undefined },
   gender: 'male' | 'female' | 'neutral' | undefined,
   limit: number | undefined,
 ): VoiceOptions {
   return {
     ...(gender === undefined ? {} : { gender }),
-    json: options.json,
     ...(limit === undefined ? {} : { limit }),
     projectId: options.projectId,
     ...(options.query === undefined ? {} : { query: options.query }),

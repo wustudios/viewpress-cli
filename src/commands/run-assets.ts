@@ -39,7 +39,6 @@ interface CaptionInput {
   fontFamily?: string;
   fontSize: string;
   fontWeight?: string;
-  json: boolean;
   karaoke: boolean;
   presetId: string;
   textTransform?: string;
@@ -55,20 +54,17 @@ interface CaptionArgument {
 
 interface UpscaleInput {
   height?: string;
-  json: boolean;
   outputFrameRate?: string;
   width?: string;
 }
 
 interface AssetListInput {
-  json: boolean;
   kind: string | undefined;
   limit: string;
   videoId: string | undefined;
 }
 
 interface AssetListOptions {
-  json: boolean;
   kind?: z.infer<typeof assetKindSchema>;
   limit: number;
   videoId: string;
@@ -82,7 +78,6 @@ interface AssetListArgument {
 }
 
 interface RemoveBackgroundInput {
-  json: boolean;
   outputCodec: string;
   refineForegroundEdges: boolean;
   subjectIsPerson: boolean;
@@ -96,7 +91,6 @@ interface RemoveBackgroundArgument {
 }
 
 interface EnhanceAudioInput {
-  json: boolean;
   normalize: boolean;
   removeNoise: boolean;
   studioSound: boolean;
@@ -178,7 +172,7 @@ async function listAssets(arguments_: string[]): Promise<void> {
   }
   const response = await getApiResponse({ method: 'GET', path: 'assets', query, schema: assetsResponseSchema });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -198,7 +192,6 @@ function getListOptions(arguments_: string[]): AssetListOptions {
   }
   const kind = getAssetKind(input.kind);
   return {
-    json: input.json,
     ...(kind === undefined ? {} : { kind }),
     limit: getInteger(input.limit, '--limit', 1, 200),
     videoId: input.videoId,
@@ -206,7 +199,7 @@ function getListOptions(arguments_: string[]): AssetListOptions {
 }
 
 function getAssetListInput(arguments_: string[]): AssetListInput {
-  const input: AssetListInput = { json: false, kind: undefined, limit: '50', videoId: undefined };
+  const input: AssetListInput = { kind: undefined, limit: '50', videoId: undefined };
   const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
     index = readAssetListArgument({ arguments_, index, input, seen });
@@ -217,11 +210,6 @@ function getAssetListInput(arguments_: string[]): AssetListInput {
 function readAssetListArgument(values: AssetListArgument): number {
   const { arguments_, index, input, seen } = values;
   const argument = arguments_[index];
-  if (argument === '--json') {
-    guardNewOption(seen, 'json', argument);
-    input.json = true;
-    return index;
-  }
   const property = getAssetListProperty(argument);
   if (!property) {
     throw new CommandUsageError(`Unknown or repeated assets list option: ${String(argument)}`);
@@ -256,9 +244,10 @@ function getAssetKind(kind: string | undefined): z.infer<typeof assetKindSchema>
 }
 
 async function getAssetCommand(arguments_: string[]): Promise<void> {
-  const { assetId, json } = getAssetAndJson(arguments_, 'get');
+  const assetId = getAssetId(arguments_, 'get');
+  guardNoExtraOptions(arguments_, 'get');
   const asset = await getAsset(assetId);
-  writeAsset(asset, json);
+  writeAsset(asset);
 }
 
 async function waitForAsset(arguments_: string[]): Promise<void> {
@@ -277,7 +266,7 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
       waitTimeoutSec: options.waitTimeoutSec,
     });
     if (asset.status === 'ready') {
-      writeAsset(asset, options.json);
+      writeAsset(asset);
       return;
     }
     if (asset.status === 'error' || asset.status === 'validation_error' || asset.status === 'canceled') {
@@ -287,7 +276,7 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
         type: 'terminal_error',
       });
     }
-    writeWaitNotice(asset, options.json);
+    writeWaitNotice(asset);
     const remainingMs = deadline - Date.now();
     if (remainingMs <= 0) {
       throwWaitTimeout(asset.id, options.waitTimeoutSec);
@@ -317,23 +306,16 @@ async function getAssetBeforeDeadline(
 
 function getWaitOptions(arguments_: string[]): {
   assetId: string;
-  json: boolean;
   pollIntervalSec: number;
   waitTimeoutSec: number;
 } {
   const assetId = getAssetId(arguments_, 'wait');
-  let json = false;
   let pollInterval = '2';
   let waitTimeout = '600';
   const seen = new Set<string>();
 
   for (let index = 1; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      json = true;
-      continue;
-    }
     if (argument === '--poll-interval' || argument === '--wait-timeout') {
       guardNewOption(seen, argument, argument);
       const value = getOptionValue(arguments_, index, argument);
@@ -350,7 +332,6 @@ function getWaitOptions(arguments_: string[]): {
 
   return {
     assetId,
-    json,
     pollIntervalSec: getPositiveNumber(pollInterval, '--poll-interval'),
     waitTimeoutSec: getPositiveNumber(waitTimeout, '--wait-timeout'),
   };
@@ -385,10 +366,6 @@ function getDownloadOptions(arguments_: string[]): { assetId: string; force: boo
 
   for (let index = 1; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      continue;
-    }
     if (argument === '--force') {
       guardNewOption(seen, 'force', argument);
       force = true;
@@ -430,12 +407,12 @@ async function addCaptions(arguments_: string[]): Promise<void> {
     path: `assets/${encodeURIComponent(assetId)}/captions`,
     schema: transformResponseSchema,
   });
-  writeTransformResponse('captions', response, options.json);
+  writeTransformResponse('captions', response);
 }
 
 function getCaptionInput(arguments_: string[]): CaptionInput {
   const input: CaptionInput = {
-    alignment: 'bottom', animated: true, fontSize: '80', json: false, karaoke: true,
+    alignment: 'bottom', animated: true, fontSize: '80', karaoke: true,
     presetId: 'basic', wordsAtATime: 'short',
   };
   const seen = new Set<string>();
@@ -451,11 +428,6 @@ function readCaptionArgument(
   values: CaptionArgument,
 ): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--json') {
-    guardNewOption(values.seen, 'json', argument);
-    values.input.json = true;
-    return values.index;
-  }
   const booleanProperty = getCaptionBooleanProperty(argument);
   if (booleanProperty) {
     guardNewOption(values.seen, booleanProperty, String(argument));
@@ -524,7 +496,6 @@ function getCaptionOptions(input: CaptionInput): {
   fontFamily?: string;
   fontSize: number;
   fontWeight?: number;
-  json: boolean;
   karaoke: boolean;
   presetId: z.infer<typeof captionPresetSchema>;
   textTransform?: z.infer<typeof textTransformSchema>;
@@ -543,7 +514,6 @@ function getCaptionOptions(input: CaptionInput): {
     ...(input.fontWeight === undefined
       ? {}
       : { fontWeight: getFiniteNumber(input.fontWeight, '--font-weight') }),
-    json: input.json,
     karaoke: input.karaoke,
     presetId,
     ...(textTransform === undefined ? {} : { textTransform }),
@@ -567,20 +537,15 @@ async function upscaleAsset(arguments_: string[]): Promise<void> {
     ...(width === undefined || height === undefined ? {} : { output_resolution: { width, height } }),
     ...(outputFrameRate === undefined ? {} : { output_frame_rate: outputFrameRate }),
   };
-  await runTransform(assetId, 'upscale', body, input.json);
+  await runTransform(assetId, 'upscale', body);
 }
 
 function getUpscaleInput(arguments_: string[]): UpscaleInput {
-  const input: UpscaleInput = { json: false };
+  const input: UpscaleInput = {};
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument === '--json') {
-      guardNewOption(seen, 'json', argument);
-      input.json = true;
-      continue;
-    }
     const property = getUpscaleProperty(argument);
     if (property) {
       guardNewOption(seen, property, String(argument));
@@ -617,11 +582,11 @@ async function removeBackground(arguments_: string[]): Promise<void> {
     subject_is_person: input.subjectIsPerson,
     refine_foreground_edges: input.refineForegroundEdges,
     output_codec: codec,
-  }, input.json);
+  });
 }
 
 function getRemoveBackgroundInput(arguments_: string[]): RemoveBackgroundInput {
-  const input = { json: false, outputCodec: 'vp9', refineForegroundEdges: true, subjectIsPerson: true };
+  const input = { outputCodec: 'vp9', refineForegroundEdges: true, subjectIsPerson: true };
   const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
     index = readRemoveBackgroundArgument({ arguments_, index, input, seen });
@@ -632,11 +597,6 @@ function getRemoveBackgroundInput(arguments_: string[]): RemoveBackgroundInput {
 function readRemoveBackgroundArgument(values: RemoveBackgroundArgument): number {
   const { arguments_, index, input, seen } = values;
   const argument = arguments_[index];
-  if (argument === '--json') {
-    guardNewOption(seen, 'json', argument);
-    input.json = true;
-    return index;
-  }
   if (argument === '--output-codec') {
     guardNewOption(seen, 'outputCodec', argument);
     input.outputCodec = getOptionValue(arguments_, index, argument);
@@ -670,11 +630,11 @@ async function enhanceAudio(arguments_: string[]): Promise<void> {
     remove_noise: input.removeNoise,
     normalize: input.normalize,
     studio_sound: input.studioSound,
-  }, input.json);
+  });
 }
 
 function getEnhanceAudioInput(arguments_: string[]): EnhanceAudioInput {
-  const input = { json: false, normalize: true, removeNoise: true, studioSound: true };
+  const input = { normalize: true, removeNoise: true, studioSound: true };
   const seen = new Set<string>();
   for (const argument of arguments_) {
     readEnhanceAudioArgument({ argument, input, seen });
@@ -684,11 +644,6 @@ function getEnhanceAudioInput(arguments_: string[]): EnhanceAudioInput {
 
 function readEnhanceAudioArgument(values: EnhanceAudioArgument): void {
   const { argument, input, seen } = values;
-  if (argument === '--json') {
-    guardNewOption(seen, 'json', argument);
-    input.json = true;
-    return;
-  }
   const property = getEnhanceAudioBooleanProperty(argument);
   if (!property) {
     throw new CommandUsageError(`Unknown or repeated assets enhance-audio option: ${argument}`);
@@ -711,26 +666,27 @@ function getEnhanceAudioBooleanProperty(argument: string): 'normalize' | 'remove
 }
 
 async function runBodylessTransform(command: string, arguments_: string[]): Promise<void> {
-  const { assetId, json } = getAssetAndJson(arguments_, command);
+  const assetId = getAssetId(arguments_, command);
+  guardNoExtraOptions(arguments_, command);
   const path = command === 'transcribe' ? 'transcription' : command;
   const response = await getApiResponse({
     method: 'POST', path: `assets/${encodeURIComponent(assetId)}/${path}`, schema: transformResponseSchema,
   });
 
-  if (command === 'transcribe' && !json) {
+  if (command === 'transcribe' && !getRuntimeOptions().json) {
     process.stdout.write(
       `Started transcription for asset ${response.assetId}. The current API does not expose transcription completion or result data.\n`,
     );
     return;
   }
-  writeTransformResponse(command, response, json);
+  writeTransformResponse(command, response);
 }
 
-async function runTransform(assetId: string, path: string, body: unknown, json: boolean): Promise<void> {
+async function runTransform(assetId: string, path: string, body: unknown): Promise<void> {
   const response = await getApiResponse({
     body, method: 'POST', path: `assets/${encodeURIComponent(assetId)}/${path}`, schema: transformResponseSchema,
   });
-  writeTransformResponse(path, response, json);
+  writeTransformResponse(path, response);
 }
 
 async function getAsset(assetId: string, timeoutMs?: number): Promise<z.infer<typeof assetSchema>> {
@@ -742,15 +698,10 @@ async function getAsset(assetId: string, timeoutMs?: number): Promise<z.infer<ty
   });
 }
 
-function getAssetAndJson(arguments_: string[], command: string): { assetId: string; json: boolean } {
-  const assetId = getAssetId(arguments_, command);
-  if (arguments_.length === 1) {
-    return { assetId, json: false };
+function guardNoExtraOptions(arguments_: string[], command: string): void {
+  if (arguments_.length > 1) {
+    throw new CommandUsageError(`Unknown or repeated assets ${command} option: ${String(arguments_[1])}`);
   }
-  if (arguments_.length === 2 && arguments_[1] === '--json') {
-    return { assetId, json: true };
-  }
-  throw new CommandUsageError(`Unknown or repeated assets ${command} option: ${String(arguments_[1])}`);
 }
 
 function getAssetId(arguments_: string[], command: string): string {
@@ -761,8 +712,8 @@ function getAssetId(arguments_: string[], command: string): string {
   return assetId;
 }
 
-function writeAsset(asset: z.infer<typeof assetSchema>, json: boolean): void {
-  if (json) {
+function writeAsset(asset: z.infer<typeof assetSchema>): void {
+  if (getRuntimeOptions().json) {
     writeJson(asset);
     return;
   }
@@ -773,8 +724,8 @@ function writeAssetLine(asset: z.infer<typeof assetSchema>): void {
   process.stdout.write(`${asset.id}\t${asset.kind}\t${asset.status}\t${asset.name ?? '-'}\t${asset.url ?? '-'}\n`);
 }
 
-function writeWaitNotice(asset: z.infer<typeof assetSchema>, json: boolean): void {
-  if (json || getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
+function writeWaitNotice(asset: z.infer<typeof assetSchema>): void {
+  if (getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
     return;
   }
   const progress = asset.progress === undefined ? '' : ` (${String(asset.progress)}%)`;
@@ -792,9 +743,8 @@ function throwWaitTimeout(assetId: string, waitTimeoutSec: number): never {
 function writeTransformResponse(
   name: string,
   response: z.infer<typeof transformResponseSchema>,
-  json: boolean,
 ): void {
-  if (json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }

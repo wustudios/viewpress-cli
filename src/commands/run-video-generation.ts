@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
@@ -28,7 +29,6 @@ interface VideoGenerationInput {
   aspectRatio: string;
   durationSec: string | undefined;
   endImageAssetId: string | undefined;
-  json: boolean;
   model: string | undefined;
   name: string | undefined;
   negativePrompt: string | undefined;
@@ -46,7 +46,6 @@ interface VideoGenerationOptions {
   aspectRatio: z.infer<typeof aspectRatioSchema>;
   durationSec: number;
   endImageAssetId: string | undefined;
-  json: boolean;
   model: z.infer<typeof videoModelSchema>;
   name: string;
   negativePrompt: string | undefined;
@@ -107,7 +106,7 @@ export async function runVideoGeneration(command: 'estimate' | 'generate', argum
     schema: videoGenerationResponseSchema,
   });
   guardVideoGenerationResponse(command, response);
-  writeVideoGenerationResponse(command, response, options.json);
+  writeVideoGenerationResponse(command, response);
 }
 
 async function getVideoGenerationOptions(arguments_: string[]): Promise<VideoGenerationOptions> {
@@ -121,7 +120,7 @@ function getVideoGenerationInput(arguments_: string[]): VideoGenerationInput {
     aspectRatio: '9:16',
     durationSec: undefined,
     endImageAssetId: undefined,
-    json: false, model: undefined, name: undefined,
+    model: undefined, name: undefined,
     negativePrompt: undefined,
     prompt: undefined, promptFile: undefined,
     referenceAudioAssetIds: [],
@@ -141,10 +140,6 @@ function getVideoGenerationInput(arguments_: string[]): VideoGenerationInput {
 
 function readVideoGenerationArgument(values: VideoGenerationArgument): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--json' && !values.input.json) {
-    values.input.json = true;
-    return values.index;
-  }
   const referenceIds = getGenerationReferenceIds(values.input, argument);
   if (referenceIds) {
     referenceIds.push(getOptionValue(values.arguments_, values.index, String(argument)));
@@ -276,7 +271,7 @@ function validateVideoGenerationInput(
   guardGenerationReferenceCounts(input);
   return {
     aspectRatio: format.aspectRatio, durationSec: format.durationSec, endImageAssetId: input.endImageAssetId,
-    json: input.json, model: format.model, name: text.name, negativePrompt: input.negativePrompt,
+    model: format.model, name: text.name, negativePrompt: input.negativePrompt,
     prompt: text.prompt, referenceAudioAssetIds: input.referenceAudioAssetIds,
     referenceImageAssetIds: input.referenceImageAssetIds, referenceVideoAssetIds: input.referenceVideoAssetIds,
     startImageAssetId: input.startImageAssetId, videoId: text.videoId, withAudio: input.withAudio,
@@ -395,9 +390,8 @@ function guardVideoGenerationResponse(
 function writeVideoGenerationResponse(
   command: 'estimate' | 'generate',
   response: z.infer<typeof videoGenerationResponseSchema>,
-  json: boolean,
 ): void {
-  if (json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }

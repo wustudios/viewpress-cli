@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -78,7 +79,7 @@ async function listVideos(arguments_: string[]): Promise<void> {
   const query = new URLSearchParams({ project_id: options.projectId });
   const response = await getApiResponse({ method: 'GET', path: 'videos', query, schema: videosResponseSchema });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -102,7 +103,7 @@ async function createVideo(arguments_: string[]): Promise<void> {
     schema: videoResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -113,18 +114,12 @@ async function createVideo(arguments_: string[]): Promise<void> {
 function getVideoOptions(
   arguments_: string[],
   needsName: boolean,
-): { json: boolean; name?: string; projectId: string } {
-  let json = false;
+): { name?: string; projectId: string } {
   let name: string | undefined;
   let projectId: string | undefined;
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-
-    if (argument === '--json' && !json) {
-      json = true;
-      continue;
-    }
 
     if (argument === '--project-id' && projectId === undefined) {
       projectId = getOptionValue(arguments_, index, '--project-id');
@@ -141,7 +136,7 @@ function getVideoOptions(
     throw new CommandUsageError(`Unknown or repeated videos option: ${String(argument)}`);
   }
 
-  return getValidatedVideoOptions({ json, name, needsName, projectId });
+  return getValidatedVideoOptions({ name, needsName, projectId });
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
@@ -155,17 +150,16 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
 }
 
 function getValidatedVideoOptions(options: {
-  json: boolean;
   name: string | undefined;
   needsName: boolean;
   projectId: string | undefined;
-}): { json: boolean; name?: string; projectId: string } {
+}): { name?: string; projectId: string } {
   if (!options.projectId) {
     throw new CommandUsageError('Videos commands require --project-id.');
   }
 
   if (!options.needsName) {
-    return { json: options.json, projectId: options.projectId };
+    return { projectId: options.projectId };
   }
 
   const parsedName = videoNameSchema.safeParse(options.name);
@@ -174,7 +168,7 @@ function getValidatedVideoOptions(options: {
     throw new CommandUsageError('Videos create requires --name with 1 to 120 characters.');
   }
 
-  return { json: options.json, name: parsedName.data, projectId: options.projectId };
+  return { name: parsedName.data, projectId: options.projectId };
 }
 
 function showVideosHelp(): void {

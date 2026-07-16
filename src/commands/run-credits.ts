@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
@@ -41,10 +42,10 @@ export async function runCredits(arguments_: string[]): Promise<number> {
 }
 
 async function getCredits(arguments_: string[]): Promise<void> {
-  const json = getJsonOption(arguments_);
+  guardNoArguments(arguments_);
   const response = await getApiResponse({ method: 'GET', path: 'credits', schema: creditsResponseSchema });
 
-  if (json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -54,16 +55,10 @@ async function getCredits(arguments_: string[]): Promise<void> {
   );
 }
 
-function getJsonOption(arguments_: string[]): boolean {
-  if (arguments_.length === 0) {
-    return false;
+function guardNoArguments(arguments_: string[]): void {
+  if (arguments_.length > 0) {
+    throw new CommandUsageError(`Unknown credits get option: ${String(arguments_[0])}`);
   }
-
-  if (arguments_.length === 1 && arguments_[0] === '--json') {
-    return true;
-  }
-
-  throw new CommandUsageError(`Unknown credits get option: ${String(arguments_[0])}`);
 }
 
 function showCreditsHelp(): void {

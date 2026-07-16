@@ -98,7 +98,7 @@ function readGlobalValueArgument(values: GlobalArgument, argument: '--api-url' |
 function getParsedGlobalArguments(input: GlobalInput): ParsedGlobalArguments {
   const timeoutSec = getTimeoutSec(input.timeout ?? process.env.VIEWPRESS_TIMEOUT ?? '30');
   return {
-    arguments: getCommandArguments(input.commandArguments, input.json, input.help),
+    arguments: getCommandArguments(input.commandArguments, input.help),
     options: {
       ...(input.apiUrl === undefined ? {} : { apiUrl: input.apiUrl }),
       json: input.json,
@@ -109,21 +109,12 @@ function getParsedGlobalArguments(input: GlobalInput): ParsedGlobalArguments {
   };
 }
 
-function getCommandArguments(arguments_: string[], json: boolean, help: boolean): string[] {
+function getCommandArguments(arguments_: string[], help: boolean): string[] {
   if (help) {
     return [...arguments_, '--help'];
   }
 
-  return addJsonArgument(arguments_, json);
-}
-
-function addJsonArgument(arguments_: string[], json: boolean): string[] {
-  const command = arguments_[0];
-  if (!json || command === undefined || command === 'auth') {
-    return arguments_;
-  }
-
-  return [...arguments_, '--json'];
+  return arguments_;
 }
 
 function guardNewGlobal(seen: Set<string>, option: string): void {

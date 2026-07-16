@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
 
 import { getApiResponse } from '../api/get-api-response.ts';
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
@@ -23,7 +24,6 @@ type VideoStyleTool = 'motion-transfer' | 'talking-image' | 'timelapse-scene' | 
 interface MotionTransferInput {
   characterOrientation: string;
   imageAssetId: string | undefined;
-  json: boolean;
   keepOriginalSound: boolean;
   motionVideoAssetId: string | undefined;
   name: string | undefined;
@@ -35,7 +35,6 @@ interface MotionTransferInput {
 interface MotionTransferOptions {
   characterOrientation: 'image' | 'video';
   imageAssetId: string;
-  json: boolean;
   keepOriginalSound: boolean;
   motionVideoAssetId: string;
   name: string;
@@ -55,7 +54,6 @@ interface TalkingImageInput {
   audioAssetId: string | undefined;
   caption: boolean;
   imageAssetId: string | undefined;
-  json: boolean;
   name: string | undefined;
   resolution: string;
   talkingStyle: string;
@@ -67,7 +65,6 @@ interface TalkingImageOptions {
   audioAssetId: string;
   caption: boolean;
   imageAssetId: string;
-  json: boolean;
   name: string;
   resolution: '1080p' | '360p' | '480p' | '540p' | '720p';
   talkingStyle: 'expressive' | 'stable';
@@ -82,7 +79,6 @@ interface TalkingImageArgument {
 }
 
 interface UgcAdInput {
-  json: boolean;
   referenceImageAssetIds: string[];
   values: Map<string, string>;
 }
@@ -92,7 +88,6 @@ interface UgcAdOptions {
   cameraNotes: string | undefined;
   dialogue: string;
   durationSec: 4 | 6 | 8 | 10;
-  json: boolean;
   name: string;
   referenceImageAssetIds: string[];
   referenceVideoAssetId: string | undefined;
@@ -109,13 +104,11 @@ interface UgcAdArgument {
 }
 
 interface TimelapseInput {
-  json: boolean;
   values: Map<string, string>;
 }
 
 interface TimelapseOptions {
   aspectRatio: '16:9' | '9:16';
-  json: boolean;
   name: string;
   settingNotes: string | undefined;
   startImageAssetId: string;
@@ -170,7 +163,7 @@ async function runMotionTransfer(arguments_: string[]): Promise<void> {
     path: 'videos/motion-transfers',
     schema: pendingAssetResponseSchema,
   });
-  writePendingAssetResponse(response, options.json);
+  writePendingAssetResponse(response);
 }
 
 async function getMotionTransferOptions(arguments_: string[]): Promise<MotionTransferOptions> {
@@ -187,7 +180,6 @@ async function getMotionTransferOptions(arguments_: string[]): Promise<MotionTra
   return {
     characterOrientation: parsedOrientation.data,
     imageAssetId: getRequiredId(input.imageAssetId, 'Motion transfer requires --image-asset-id.'),
-    json: input.json,
     keepOriginalSound: input.keepOriginalSound,
     motionVideoAssetId: getRequiredId(input.motionVideoAssetId, 'Motion transfer requires --motion-video-asset-id.'),
     name: getName(input.name, 'Motion transfer'),
@@ -198,7 +190,7 @@ async function getMotionTransferOptions(arguments_: string[]): Promise<MotionTra
 
 function getMotionTransferInput(arguments_: string[]): MotionTransferInput {
   const input: MotionTransferInput = {
-    characterOrientation: 'video', imageAssetId: undefined, json: false, keepOriginalSound: true,
+    characterOrientation: 'video', imageAssetId: undefined, keepOriginalSound: true,
     motionVideoAssetId: undefined, name: undefined, prompt: undefined, promptFile: undefined, videoId: undefined,
   };
   const seen = new Set<string>();
@@ -210,10 +202,6 @@ function getMotionTransferInput(arguments_: string[]): MotionTransferInput {
 
 function readMotionTransferArgument(values: MotionTransferArgument): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--json' && !values.input.json) {
-    values.input.json = true;
-    return values.index;
-  }
   if (argument === '--keep-original-sound' || argument === '--no-original-sound') {
     guardNewOption(values.seen, 'sound', argument);
     values.input.keepOriginalSound = argument === '--keep-original-sound';
@@ -239,7 +227,7 @@ function readMotionTransferValue(values: MotionTransferArgument): number {
 
 function getMotionTransferProperty(
   argument: string | undefined,
-): keyof Omit<MotionTransferInput, 'json' | 'keepOriginalSound'> | null {
+): keyof Omit<MotionTransferInput, 'keepOriginalSound'> | null {
   const properties = {
     '--character-orientation': 'characterOrientation', '--image-asset-id': 'imageAssetId',
     '--motion-video-asset-id': 'motionVideoAssetId', '--name': 'name', '--prompt': 'prompt',
@@ -265,7 +253,7 @@ async function runTalkingImage(arguments_: string[]): Promise<void> {
     path: 'videos/talking-images',
     schema: pendingAssetResponseSchema,
   });
-  writePendingAssetResponse(response, options.json);
+  writePendingAssetResponse(response);
 }
 
 function getTalkingImageOptions(arguments_: string[]): TalkingImageOptions {
@@ -275,7 +263,6 @@ function getTalkingImageOptions(arguments_: string[]): TalkingImageOptions {
     audioAssetId: getRequiredId(input.audioAssetId, 'Talking image requires --audio-asset-id.'),
     caption: input.caption,
     imageAssetId: getRequiredId(input.imageAssetId, 'Talking image requires --image-asset-id.'),
-    json: input.json,
     name: getName(input.name, 'Talking image'),
     resolution: getTalkingImageResolution(input.resolution),
     talkingStyle: getTalkingImageStyle(input.talkingStyle),
@@ -310,7 +297,7 @@ function getTalkingImageStyle(value: string): 'expressive' | 'stable' {
 function getTalkingImageInput(arguments_: string[]): TalkingImageInput {
   const input: TalkingImageInput = {
     aspectRatio: '9:16', audioAssetId: undefined, caption: false, imageAssetId: undefined,
-    json: false, name: undefined, resolution: '720p', talkingStyle: 'stable', videoId: undefined,
+    name: undefined, resolution: '720p', talkingStyle: 'stable', videoId: undefined,
   };
   const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
@@ -321,10 +308,6 @@ function getTalkingImageInput(arguments_: string[]): TalkingImageInput {
 
 function readTalkingImageArgument(values: TalkingImageArgument): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--json' && !values.input.json) {
-    values.input.json = true;
-    return values.index;
-  }
   if (argument === '--caption' || argument === '--no-caption') {
     guardNewOption(values.seen, 'caption', argument);
     values.input.caption = argument === '--caption';
@@ -346,7 +329,7 @@ function readTalkingImageValue(values: TalkingImageArgument): number {
 
 function getTalkingImageProperty(
   argument: string | undefined,
-): keyof Omit<TalkingImageInput, 'caption' | 'json'> | null {
+): keyof Omit<TalkingImageInput, 'caption'> | null {
   const properties = {
     '--aspect-ratio': 'aspectRatio', '--audio-asset-id': 'audioAssetId',
     '--image-asset-id': 'imageAssetId', '--name': 'name', '--resolution': 'resolution',
@@ -375,7 +358,7 @@ async function runUgcAd(arguments_: string[]): Promise<void> {
     path: 'videos/ugc-ads',
     schema: pendingAssetResponseSchema,
   });
-  writePendingAssetResponse(response, options.json);
+  writePendingAssetResponse(response);
 }
 
 function getUgcAdOptions(arguments_: string[]): UgcAdOptions {
@@ -390,7 +373,6 @@ function getUgcAdOptions(arguments_: string[]): UgcAdOptions {
     cameraNotes: input.values.get('--camera-notes'),
     dialogue,
     durationSec,
-    json: input.json,
     name: getName(input.values.get('--name'), 'UGC ad'),
     referenceImageAssetIds: input.referenceImageAssetIds,
     referenceVideoAssetId: input.values.get('--reference-video-asset-id'),
@@ -402,7 +384,7 @@ function getUgcAdOptions(arguments_: string[]): UgcAdOptions {
 }
 
 function getUgcAdInput(arguments_: string[]): UgcAdInput {
-  const input: UgcAdInput = { json: false, referenceImageAssetIds: [], values: new Map() };
+  const input: UgcAdInput = { referenceImageAssetIds: [], values: new Map() };
   for (let index = 0; index < arguments_.length; index += 1) {
     index = readUgcAdArgument({ arguments_, index, input });
   }
@@ -411,10 +393,6 @@ function getUgcAdInput(arguments_: string[]): UgcAdInput {
 
 function readUgcAdArgument(values: UgcAdArgument): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--json' && !values.input.json) {
-    values.input.json = true;
-    return values.index;
-  }
   if (argument === '--reference-image-asset-id') {
     values.input.referenceImageAssetIds.push(getOptionValue(values.arguments_, values.index, argument));
     return values.index + 1;
@@ -498,7 +476,7 @@ async function runTimelapseScene(arguments_: string[]): Promise<void> {
     schema: timelapseResponseSchema,
   });
 
-  if (options.json) {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
@@ -509,7 +487,6 @@ function getTimelapseOptions(arguments_: string[]): TimelapseOptions {
   const input = getTimelapseInput(arguments_);
   return {
     aspectRatio: getTimelapseAspectRatio(input.values),
-    json: input.json,
     name: getName(input.values.get('--name'), 'Timelapse scene'),
     settingNotes: input.values.get('--setting-notes'),
     startImageAssetId: getRequiredId(
@@ -523,7 +500,7 @@ function getTimelapseOptions(arguments_: string[]): TimelapseOptions {
 }
 
 function getTimelapseInput(arguments_: string[]): TimelapseInput {
-  const input: TimelapseInput = { json: false, values: new Map<string, string>() };
+  const input: TimelapseInput = { values: new Map<string, string>() };
   for (let index = 0; index < arguments_.length; index += 1) {
     index = readTimelapseArgument({ arguments_, index, input });
   }
@@ -533,10 +510,6 @@ function getTimelapseInput(arguments_: string[]): TimelapseInput {
 function readTimelapseArgument(values: TimelapseArgument): number {
   const { arguments_, index, input } = values;
   const argument = arguments_[index];
-  if (argument === '--json' && !input.json) {
-    input.json = true;
-    return index;
-  }
   if (!timelapseOptionNames.has(String(argument)) || input.values.has(String(argument))) {
     throw unknownOption(argument);
   }
@@ -625,8 +598,8 @@ function getRequiredId(value: string | undefined, message: string): string {
   return value;
 }
 
-function writePendingAssetResponse(response: z.infer<typeof pendingAssetResponseSchema>, json: boolean): void {
-  if (json) {
+function writePendingAssetResponse(response: z.infer<typeof pendingAssetResponseSchema>): void {
+  if (getRuntimeOptions().json) {
     writeJson(response);
     return;
   }
