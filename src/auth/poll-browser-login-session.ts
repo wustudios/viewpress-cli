@@ -14,7 +14,6 @@ export async function pollBrowserLoginSession(options: PollBrowserLoginOptions):
   while (getRemainingSessionMs(options) > 0) {
     const intervalMs = options.session.intervalSec * 1_000;
     await options.wait(Math.min(intervalMs, getRemainingSessionMs(options)));
-    guardSessionActive(options);
     const response = await pollOnce(options);
 
     if (response === null) {

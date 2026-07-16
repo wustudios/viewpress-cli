@@ -85,7 +85,7 @@ async function fetchDownload(url: URL): Promise<DownloadResponse> {
   const signal = AbortSignal.timeout(timeoutSec * 1_000);
   let downloadUrl = url;
 
-  for (let redirectCount = 0; redirectCount <= maxRedirectCount; redirectCount += 1) {
+  for (let redirectCount = 0; ; redirectCount += 1) {
     const response = await fetchDownloadResponse({ signal, timeoutSec, url: downloadUrl });
     if (!isRedirectResponse(response)) {
       return { response, signal, timeoutSec };
@@ -95,7 +95,6 @@ async function fetchDownload(url: URL): Promise<DownloadResponse> {
     }
     downloadUrl = getRedirectUrl(response, downloadUrl);
   }
-  throw new Error('Asset download redirect handling failed.');
 }
 
 async function fetchDownloadResponse(request: DownloadRequest): Promise<Response> {
