@@ -146,7 +146,7 @@ function readVideoGenerationArgument(values: VideoGenerationArgument): number {
     return values.index + 1;
   }
   if (argument === '--with-audio' || argument === '--no-audio') {
-    guardNewOption(values.seen, 'audio', argument);
+    guardNewOption(values.seen, 'withAudio', argument);
     values.input.withAudio = argument === '--with-audio';
     return values.index;
   }

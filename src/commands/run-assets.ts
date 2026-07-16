@@ -167,7 +167,7 @@ async function runAssetCommand(command: string, arguments_: string[]): Promise<v
     return;
   }
   if (command === 'smooth' || command === 'humanize' || command === 'transcribe') {
-    await runBodylessTransform(command, arguments_);
+    await startAssetJob(command, arguments_);
     return;
   }
 
@@ -701,7 +701,7 @@ function getEnhanceAudioBooleanProperty(argument: string): 'normalize' | 'remove
   return null;
 }
 
-async function runBodylessTransform(command: string, arguments_: string[]): Promise<void> {
+async function startAssetJob(command: string, arguments_: string[]): Promise<void> {
   const assetId = getAssetId(arguments_, command);
   guardNoExtraOptions(arguments_, command);
   const path = command === 'transcribe' ? 'transcription' : command;

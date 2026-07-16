@@ -220,7 +220,7 @@ function getMotionTransferInput(arguments_: string[]): MotionTransferInput {
 function readMotionTransferArgument(values: MotionTransferArgument): number {
   const argument = values.arguments_[values.index];
   if (argument === '--keep-original-sound' || argument === '--no-original-sound') {
-    guardNewOption(values.seen, 'sound', argument);
+    guardNewOption(values.seen, 'keepOriginalSound', argument);
     values.input.keepOriginalSound = argument === '--keep-original-sound';
     return values.index;
   }
@@ -231,7 +231,7 @@ function readMotionTransferValue(values: MotionTransferArgument): number {
   const argument = values.arguments_[values.index];
   const property = getMotionTransferProperty(argument);
   if (!property) {
-    throw unknownOption(argument);
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
   }
   if (property === 'prompt' || property === 'promptFile') {
     guardPromptOption(values.seen, property, String(argument));
@@ -353,7 +353,7 @@ function readTalkingImageValue(values: TalkingImageArgument): number {
   const argument = values.arguments_[values.index];
   const property = getTalkingImageProperty(argument);
   if (!property) {
-    throw unknownOption(argument);
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
   }
   guardNewOption(values.seen, property, String(argument));
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
@@ -453,7 +453,7 @@ function readUgcAdArgument(values: UgcAdArgument): number {
   }
   const property = getUgcAdProperty(argument);
   if (!property) {
-    throw unknownOption(argument);
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
   }
   guardNewOption(values.seen, property, String(argument));
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
@@ -588,7 +588,7 @@ function readTimelapseArgument(values: TimelapseArgument): number {
   const argument = values.arguments_[values.index];
   const property = getTimelapseProperty(argument);
   if (!property) {
-    throw unknownOption(argument);
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
   }
   guardNewOption(values.seen, property, String(argument));
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
@@ -646,7 +646,7 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
 
 function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw unknownOption(option);
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${option}`);
   }
   seen.add(property);
 }
@@ -654,13 +654,9 @@ function guardNewOption(seen: Set<string>, property: string, option: string): vo
 function guardPromptOption(seen: Set<string>, property: 'prompt' | 'promptFile', option: string): void {
   const conflictingProperty = property === 'prompt' ? 'promptFile' : 'prompt';
   if (seen.has(property) || seen.has(conflictingProperty)) {
-    throw unknownOption(option);
+    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${option}`);
   }
   seen.add(property);
-}
-
-function unknownOption(argument: string | undefined): CommandUsageError {
-  return new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
 }
 
 async function getPrompt(prompt: string | undefined, promptFile: string | undefined): Promise<string | undefined> {
