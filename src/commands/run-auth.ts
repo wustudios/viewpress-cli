@@ -75,7 +75,9 @@ function showAuthCommandHelp(command: 'login' | 'logout' | 'set-key' | 'status')
     return;
   }
   if (command === 'login') {
-    process.stdout.write('Usage: viewpress auth login\n');
+    process.stdout.write(
+      "Usage: viewpress auth login\n\nRequires server support not yet available in production; use 'viewpress auth set-key'.\n",
+    );
     return;
   }
 
