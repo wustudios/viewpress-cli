@@ -9,7 +9,7 @@ import { CommandUsageError } from './command-usage-error.ts';
 export async function runAuth(arguments_: string[]): Promise<number> {
   const command = arguments_[0];
 
-  if (arguments_.includes('--help') && (command === undefined || command === '--help')) {
+  if (command === '--help') {
     showAuthHelp();
     return 0;
   }
@@ -46,7 +46,7 @@ export async function runAuth(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    if (command === undefined || command === '--help') {
+    if (command === undefined) {
       showAuthHelp();
       return 0;
     }

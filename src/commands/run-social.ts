@@ -120,7 +120,7 @@ export async function runSocial(arguments_: string[]): Promise<number> {
       await runPosts(arguments_.slice(1));
       return 0;
     }
-    if (resource === undefined || ((resource === '--help' || resource === '-h') && arguments_.length === 1)) {
+    if (resource === undefined || (resource === '--help' && arguments_.length === 1)) {
       showSocialHelp();
       return 0;
     }
@@ -148,7 +148,7 @@ async function runAccounts(arguments_: string[]): Promise<void> {
     await connectAccount(arguments_.slice(1));
     return;
   }
-  if (command === undefined || ((command === '--help' || command === '-h') && arguments_.length === 1)) {
+  if (command === undefined || (command === '--help' && arguments_.length === 1)) {
     showAccountsHelp();
     return;
   }
@@ -277,7 +277,7 @@ async function runPosts(arguments_: string[]): Promise<void> {
     await cancelPost(commandArguments);
     return;
   }
-  if (command === undefined || ((command === '--help' || command === '-h') && arguments_.length === 1)) {
+  if (command === undefined || (command === '--help' && arguments_.length === 1)) {
     showPostsHelp();
     return;
   }

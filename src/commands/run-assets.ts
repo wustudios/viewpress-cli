@@ -116,7 +116,7 @@ export async function runAssets(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
 
-    if (command === undefined || ((command === '--help' || command === '-h') && arguments_.length === 1)) {
+    if (command === undefined || (command === '--help' && arguments_.length === 1)) {
       showAssetsHelp();
       return 0;
     }

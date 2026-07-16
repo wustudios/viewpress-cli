@@ -55,12 +55,7 @@ export async function runVoices(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    if (command === undefined) {
-      showVoicesHelp();
-      return 0;
-    }
-
-    if ((command === '--help' || command === '-h') && arguments_.length === 1) {
+    if (command === undefined || (command === '--help' && arguments_.length === 1)) {
       showVoicesHelp();
       return 0;
     }

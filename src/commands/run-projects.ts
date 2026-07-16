@@ -38,12 +38,7 @@ export async function runProjects(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    if (command === undefined) {
-      showProjectsHelp();
-      return 0;
-    }
-
-    if ((command === '--help' || command === '-h') && arguments_.length === 1) {
+    if (command === undefined || (command === '--help' && arguments_.length === 1)) {
       showProjectsHelp();
       return 0;
     }

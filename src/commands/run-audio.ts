@@ -96,7 +96,7 @@ export async function runAudio(resource: 'music' | 'sfx' | 'speech', arguments_:
       return 0;
     }
 
-    if (command === undefined || ((command === '--help' || command === '-h') && arguments_.length === 1)) {
+    if (command === undefined || (command === '--help' && arguments_.length === 1)) {
       showAudioHelp(resource);
       return 0;
     }
