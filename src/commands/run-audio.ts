@@ -195,19 +195,24 @@ function readSpeechArgument(arguments_: string[], index: number, input: SpeechIn
   const argument = arguments_[index];
 
   if (argument === '--english-normalization' || argument === '--no-english-normalization') {
-    guardNewOption(seen, 'englishNormalization', argument, 'speech');
+    guardNewOption(seen, 'englishNormalization', argument);
     input.englishNormalization = argument === '--english-normalization';
     return index;
   }
 
   const property = getSpeechProperty(argument);
-  if (property) {
-    guardNewOption(seen, property, String(argument), 'speech');
-    input[property] = getOptionValue(arguments_, index, String(argument));
-    return index + 1;
+  if (!property) {
+    throwUnknownArgument(argument);
   }
-
-  throw new CommandUsageError(`Unknown, repeated, or conflicting speech option: ${String(argument)}`);
+  if (property === 'text' || property === 'textFile') {
+    guardTextOption(seen, property, String(argument));
+  } else if (property === 'voicePreset' || property === 'voiceRecordId') {
+    guardVoiceOption(seen, property, String(argument));
+  } else {
+    guardNewOption(seen, property, String(argument));
+  }
+  input[property] = getOptionValue(arguments_, index, String(argument));
+  return index + 1;
 }
 
 function getSpeechProperty(argument: string | undefined): keyof Omit<SpeechInput, 'englishNormalization'> | null {
@@ -327,16 +332,20 @@ function readMusicArgument(values: MusicArgument): number {
   const argument = values.arguments_[values.index];
 
   if (argument === '--instrumental-only' || argument === '--no-instrumental-only') {
-    guardNewOption(values.seen, 'instrumentalOnly', argument, 'music');
+    guardNewOption(values.seen, 'instrumentalOnly', argument);
     values.input.instrumentalOnly = argument === '--instrumental-only';
     return values.index;
   }
 
   const property = getMusicProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting music option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
-  guardNewOption(values.seen, property, String(argument), 'music');
+  if (property === 'prompt' || property === 'promptFile') {
+    guardPromptOption(values.seen, property, String(argument));
+  } else {
+    guardNewOption(values.seen, property, String(argument));
+  }
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
   return values.index + 1;
 }
@@ -406,9 +415,13 @@ function readSfxArgument(values: SfxArgument): number {
   const argument = values.arguments_[values.index];
   const property = getSfxProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting sfx option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
-  guardNewOption(values.seen, property, String(argument), 'sfx');
+  if (property === 'prompt' || property === 'promptFile') {
+    guardPromptOption(values.seen, property, String(argument));
+  } else {
+    guardNewOption(values.seen, property, String(argument));
+  }
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
   return values.index + 1;
 }
@@ -457,17 +470,52 @@ function getCommonValues(videoIdInput: string | undefined, nameInput: string | u
   return { name: name.data, videoId: videoIdInput };
 }
 
-function guardNewOption(seen: Set<string>, property: string, option: string, resource: string): void {
-  const conflicts = (property === 'prompt' && seen.has('promptFile'))
-    || (property === 'promptFile' && seen.has('prompt'))
-    || (property === 'text' && seen.has('textFile'))
-    || (property === 'textFile' && seen.has('text'))
-    || (property === 'voicePreset' && seen.has('voiceRecordId'))
-    || (property === 'voiceRecordId' && seen.has('voicePreset'));
-  if (seen.has(property) || conflicts) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting ${resource} option: ${option}`);
+function guardNewOption(seen: Set<string>, property: string, option: string): void {
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
   seen.add(property);
+}
+
+function guardPromptOption(seen: Set<string>, property: 'prompt' | 'promptFile', option: string): void {
+  const conflictingProperty = property === 'prompt' ? 'promptFile' : 'prompt';
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
+  }
+  if (seen.has(conflictingProperty)) {
+    throw new CommandUsageError('Specify only one of --prompt or --prompt-file.');
+  }
+  seen.add(property);
+}
+
+function guardTextOption(seen: Set<string>, property: 'text' | 'textFile', option: string): void {
+  const conflictingProperty = property === 'text' ? 'textFile' : 'text';
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
+  }
+  if (seen.has(conflictingProperty)) {
+    throw new CommandUsageError('Specify only one of --text or --text-file.');
+  }
+  seen.add(property);
+}
+
+function guardVoiceOption(seen: Set<string>, property: 'voicePreset' | 'voiceRecordId', option: string): void {
+  const conflictingProperty = property === 'voicePreset' ? 'voiceRecordId' : 'voicePreset';
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
+  }
+  if (seen.has(conflictingProperty)) {
+    throw new CommandUsageError('Specify only one of --voice-preset or --voice-record-id.');
+  }
+  seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

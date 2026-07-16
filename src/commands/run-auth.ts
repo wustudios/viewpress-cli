@@ -58,7 +58,7 @@ export async function runAuth(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    return writeError(new CommandUsageError('Unknown auth command.', 'auth'));
+    return writeError(new CommandUsageError(`Unknown auth command: ${command}`, 'auth'));
   } catch (error) {
     if (error instanceof CommandUsageError && error.commandPath === undefined) {
       return writeError(

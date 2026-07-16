@@ -89,7 +89,7 @@ async function listStyles(arguments_: string[]): Promise<void> {
 
 function guardNoArguments(arguments_: string[]): void {
   if (arguments_.length > 0) {
-    throw new CommandUsageError(`Unknown styles list option: ${String(arguments_[0])}`);
+    throw new CommandUsageError(`Unexpected argument: ${String(arguments_[0])}`);
   }
 }
 

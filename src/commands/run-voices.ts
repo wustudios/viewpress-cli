@@ -122,9 +122,9 @@ function readVoiceArgument(values: VoiceArgument): number {
   const argument = arguments_[index];
   const property = getVoiceProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown or repeated voices list option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
-  guardNewVoiceOption(seen, property, String(argument));
+  guardNewOption(seen, property, String(argument));
   input[property] = getOptionValue(arguments_, index, String(argument));
   return index + 1;
 }
@@ -148,11 +148,19 @@ function getVoiceProperty(argument: string | undefined): keyof Pick<
   return null;
 }
 
-function guardNewVoiceOption(seen: Set<string>, property: string, option: string): void {
+function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown or repeated voices list option: ${option}`);
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
   seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

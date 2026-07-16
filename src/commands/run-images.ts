@@ -155,9 +155,13 @@ function readImageArgument(values: ImageArgument): number {
   }
   const property = getImageProperty(argument, needsReferences);
   if (!property) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting images option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
-  guardNewImageOption(seen, property, String(argument));
+  if (property === 'prompt' || property === 'promptFile') {
+    guardPromptOption(seen, property, String(argument));
+  } else {
+    guardNewOption(seen, property, String(argument));
+  }
   input[property] = getOptionValue(arguments_, index, String(argument));
   return index + 1;
 }
@@ -187,13 +191,30 @@ function getImageProperty(argument: string | undefined, needsReferences: boolean
   return null;
 }
 
-function guardNewImageOption(seen: Set<string>, property: string, option: string): void {
-  const conflictsWithPrompt = property === 'prompt' && seen.has('promptFile');
-  const conflictsWithPromptFile = property === 'promptFile' && seen.has('prompt');
-  if (seen.has(property) || conflictsWithPrompt || conflictsWithPromptFile) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting images option: ${option}`);
+function guardNewOption(seen: Set<string>, property: string, option: string): void {
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
   seen.add(property);
+}
+
+function guardPromptOption(seen: Set<string>, property: 'prompt' | 'promptFile', option: string): void {
+  const conflictingProperty = property === 'prompt' ? 'promptFile' : 'prompt';
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
+  }
+  if (seen.has(conflictingProperty)) {
+    throw new CommandUsageError('Specify only one of --prompt or --prompt-file.');
+  }
+  seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

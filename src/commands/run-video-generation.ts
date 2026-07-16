@@ -170,10 +170,14 @@ function readVideoGenerationValue(values: VideoGenerationArgument): number {
   const argument = values.arguments_[values.index];
   const property = getGenerationProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
   const option = String(argument);
-  guardNewOption(values.seen, property, option);
+  if (property === 'prompt' || property === 'promptFile') {
+    guardPromptOption(values.seen, property, option);
+  } else {
+    guardNewOption(values.seen, property, option);
+  }
   values.input[property] = getOptionValue(values.arguments_, values.index, option);
   return values.index + 1;
 }
@@ -226,14 +230,29 @@ function getGenerationProperty(argument: string | undefined): keyof Pick<
 
 function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${option}`);
-  }
-
-  if ((property === 'prompt' && seen.has('promptFile')) || (property === 'promptFile' && seen.has('prompt'))) {
-    throw new CommandUsageError(`Unknown, repeated, or conflicting videos option: ${option}`);
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
 
   seen.add(property);
+}
+
+function guardPromptOption(seen: Set<string>, property: 'prompt' | 'promptFile', option: string): void {
+  const conflictingProperty = property === 'prompt' ? 'promptFile' : 'prompt';
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
+  }
+  if (seen.has(conflictingProperty)) {
+    throw new CommandUsageError('Specify only one of --prompt or --prompt-file.');
+  }
+  seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

@@ -125,7 +125,7 @@ function getCreateProjectInput(arguments_: string[]): CreateProjectInput {
 
     const property = getCreateProjectProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated projects create option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
     guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
@@ -144,10 +144,18 @@ function getCreateProjectProperty(argument: string | undefined): keyof CreatePro
 
 function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown or repeated projects create option: ${option}`);
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
 
   seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
@@ -162,7 +170,7 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
 
 function guardNoArguments(arguments_: string[]): void {
   if (arguments_.length > 0) {
-    throw new CommandUsageError(`Unknown projects list option: ${String(arguments_[0])}`);
+    throw new CommandUsageError(`Unexpected argument: ${String(arguments_[0])}`);
   }
 }
 

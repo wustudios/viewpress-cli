@@ -245,9 +245,9 @@ function getConnectInput(arguments_: string[]): ConnectInput {
     const argument = arguments_[index];
     const property = getConnectProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated social accounts connect option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
-    guardNewOption(seen, property, String(argument), 'accounts connect');
+    guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
     index += 1;
   }
@@ -360,9 +360,9 @@ function readCreatePostArgument(
   const argument = values.arguments_[values.index];
   const property = getCreatePostProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown or repeated social posts create option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
-  guardNewOption(values.seen, property, String(argument), 'posts create');
+  guardNewOption(values.seen, property, String(argument));
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
   return values.index + 1;
 }
@@ -514,9 +514,9 @@ function getListPostsInput(arguments_: string[]): ListPostsInput {
     const argument = arguments_[index];
     const property = getListPostsProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated social posts list option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
-    guardNewOption(seen, property, String(argument), 'posts list');
+    guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
     index += 1;
   }
@@ -535,7 +535,7 @@ function getListPostsProperty(argument: string | undefined): keyof ListPostsInpu
 
 async function getPostCommand(arguments_: string[]): Promise<void> {
   const postId = getPostId(arguments_, 'get');
-  guardNoExtraOptions(arguments_, 'get');
+  guardNoExtraOptions(arguments_);
   const post = await getPost(postId);
   writePost(post);
 }
@@ -626,9 +626,9 @@ function getWaitPostInput(arguments_: string[]): WaitPostInput {
     const argument = arguments_[index];
     const property = getWaitPostProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated social posts wait option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
-    guardNewOption(seen, property, String(argument), 'posts wait');
+    guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
     index += 1;
   }
@@ -647,7 +647,7 @@ function getWaitPostProperty(argument: string | undefined): keyof WaitPostInput 
 
 async function cancelPost(arguments_: string[]): Promise<void> {
   const postId = getPostId(arguments_, 'cancel');
-  guardNoExtraOptions(arguments_, 'cancel');
+  guardNoExtraOptions(arguments_);
   await getApiResponse({
     method: 'DELETE',
     path: `social/posts/${encodeURIComponent(postId)}`,
@@ -684,9 +684,9 @@ function getAccountsListInput(arguments_: string[]): AccountsListInput {
     const argument = arguments_[index];
     const property = getAccountsListProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated social accounts list option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
-    guardNewOption(seen, property, String(argument), 'accounts list');
+    guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
     index += 1;
   }
@@ -700,9 +700,9 @@ function getAccountsListProperty(argument: string | undefined): keyof AccountsLi
   return null;
 }
 
-function guardNoExtraOptions(arguments_: string[], command: string): void {
+function guardNoExtraOptions(arguments_: string[]): void {
   if (arguments_.length > 1) {
-    throw new CommandUsageError(`Unknown or repeated social posts ${command} option: ${String(arguments_[1])}`);
+    throw new CommandUsageError(`Unexpected argument: ${String(arguments_[1])}`);
   }
 }
 
@@ -714,11 +714,19 @@ function getPostId(arguments_: string[], command: string): string {
   return postId;
 }
 
-function guardNewOption(seen: Set<string>, property: string, option: string, command: string): void {
+function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown or repeated social ${command} option: ${option}`);
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
   seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, option: string): string {

@@ -108,14 +108,12 @@ function getMediaImportInput(arguments_: string[]): MediaImportInput {
     const argument = arguments_[index];
 
     const property = getMediaProperty(argument);
-    if (property) {
-      guardNewOption(seen, property, String(argument));
-      input[property] = getOptionValue(arguments_, index, String(argument));
-      index += 1;
-      continue;
+    if (!property) {
+      throwUnknownArgument(argument);
     }
-
-    throw new CommandUsageError(`Unknown or repeated media option: ${String(argument)}`);
+    guardNewOption(seen, property, String(argument));
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
   }
 
   return input;
@@ -138,10 +136,18 @@ function getMediaProperty(
 
 function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown or repeated media option: ${option}`);
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
 
   seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

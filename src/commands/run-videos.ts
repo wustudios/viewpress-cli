@@ -158,7 +158,7 @@ function getListVideosInput(arguments_: string[]): ListVideosInput {
 
     const property = getListVideosProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated videos option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
     guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
@@ -198,7 +198,7 @@ function getCreateVideoInput(arguments_: string[]): CreateVideoInput {
 
     const property = getCreateVideoProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated videos option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
     guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
@@ -220,10 +220,18 @@ function getCreateVideoProperty(argument: string | undefined): keyof CreateVideo
 
 function guardNewOption(seen: Set<string>, property: string, option: string): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown or repeated videos option: ${option}`);
+    throw new CommandUsageError(`Flag ${option} cannot be repeated.`);
   }
 
   seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

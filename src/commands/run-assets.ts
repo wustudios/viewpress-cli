@@ -250,7 +250,7 @@ function readAssetListArgument(values: AssetListArgument): number {
   const argument = arguments_[index];
   const property = getAssetListProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown or repeated assets list option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
   guardNewOption(seen, property, argument);
   input[property] = getOptionValue(arguments_, index, String(argument));
@@ -283,7 +283,7 @@ function getAssetKind(kind: string | undefined): z.infer<typeof assetKindSchema>
 
 async function getAssetCommand(arguments_: string[]): Promise<void> {
   const assetId = getAssetId(arguments_, 'get');
-  guardNoExtraOptions(arguments_, 'get');
+  guardNoExtraOptions(arguments_);
   const asset = await getAsset(assetId);
   writeAsset(asset);
 }
@@ -376,7 +376,7 @@ function getWaitInput(arguments_: string[]): WaitInput {
     const argument = arguments_[index];
     const property = getWaitProperty(argument);
     if (!property) {
-      throw new CommandUsageError(`Unknown or repeated assets wait option: ${String(argument)}`);
+      throwUnknownArgument(argument);
     }
     guardNewOption(seen, property, String(argument));
     input[property] = getOptionValue(arguments_, index, String(argument));
@@ -444,7 +444,7 @@ function getDownloadInput(arguments_: string[]): DownloadInput {
       index += 1;
       continue;
     }
-    throw new CommandUsageError(`Unknown or repeated assets download option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
 
   return input;
@@ -505,7 +505,7 @@ function readCaptionValue(values: CaptionArgument): number {
   const argument = values.arguments_[values.index];
   const property = getCaptionValueProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown or repeated assets add-captions option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
   guardNewOption(values.seen, property, String(argument));
   values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
@@ -617,7 +617,7 @@ function getUpscaleInput(arguments_: string[]): UpscaleInput {
       index += 1;
       continue;
     }
-    throw new CommandUsageError(`Unknown or repeated assets upscale option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
   return input;
 }
@@ -668,7 +668,7 @@ function readRemoveBackgroundArgument(values: RemoveBackgroundArgument): number 
   }
   const property = getRemoveBackgroundBooleanProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown or repeated assets remove-background option: ${String(argument)}`);
+    throwUnknownArgument(argument);
   }
   guardNewOption(seen, property, argument);
   input[property] = !argument?.startsWith('--no-');
@@ -710,7 +710,7 @@ function readEnhanceAudioArgument(values: EnhanceAudioArgument): void {
   const { argument, input, seen } = values;
   const property = getEnhanceAudioBooleanProperty(argument);
   if (!property) {
-    throw new CommandUsageError(`Unknown or repeated assets enhance-audio option: ${argument}`);
+    throwUnknownArgument(argument);
   }
   guardNewOption(seen, property, argument);
   input[property] = !argument.startsWith('--no-');
@@ -731,7 +731,7 @@ function getEnhanceAudioBooleanProperty(argument: string): 'normalize' | 'remove
 
 async function startAssetJob(command: string, arguments_: string[]): Promise<void> {
   const assetId = getAssetId(arguments_, command);
-  guardNoExtraOptions(arguments_, command);
+  guardNoExtraOptions(arguments_);
   const path = command === 'transcribe' ? 'transcription' : command;
   const response = await getApiResponse({
     method: 'POST', path: `assets/${encodeURIComponent(assetId)}/${path}`, schema: transformResponseSchema,
@@ -762,9 +762,9 @@ async function getAsset(assetId: string, timeoutMs?: number): Promise<z.infer<ty
   });
 }
 
-function guardNoExtraOptions(arguments_: string[], command: string): void {
+function guardNoExtraOptions(arguments_: string[]): void {
   if (arguments_.length > 1) {
-    throw new CommandUsageError(`Unknown or repeated assets ${command} option: ${String(arguments_[1])}`);
+    throw new CommandUsageError(`Unexpected argument: ${String(arguments_[1])}`);
   }
 }
 
@@ -817,9 +817,17 @@ function writeTransformResponse(
 
 function guardNewOption(seen: Set<string>, property: string, option: string | undefined): void {
   if (seen.has(property)) {
-    throw new CommandUsageError(`Unknown or repeated assets option: ${String(option)}`);
+    throw new CommandUsageError(`Flag ${String(option)} cannot be repeated.`);
   }
   seen.add(property);
+}
+
+function throwUnknownArgument(argument: string | undefined): never {
+  const value = String(argument);
+  if (value.startsWith('-')) {
+    throw new CommandUsageError(`Unknown flag: ${value}`);
+  }
+  throw new CommandUsageError(`Unexpected argument: ${value}`);
 }
 
 function getOptionValue(arguments_: string[], index: number, option: string): string {
