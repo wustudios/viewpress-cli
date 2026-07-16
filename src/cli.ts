@@ -20,6 +20,10 @@ import { showHelp } from './commands/show-help.ts';
 import { showVersion } from './commands/show-version.ts';
 import { writeError } from './output/write-error.ts';
 
+process.on('SIGINT', () => {
+  process.exit(130);
+});
+
 const rawArguments = Bun.argv.slice(2);
 
 try {
