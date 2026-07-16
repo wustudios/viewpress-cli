@@ -543,23 +543,36 @@ async function getPostCommand(arguments_: string[]): Promise<void> {
 
 async function waitForPost(arguments_: string[]): Promise<void> {
   const options = getWaitOptions(arguments_);
+  const post = await getPublishedPost(options);
+  writePost(post);
+}
+
+async function getPublishedPost(options: {
+  pollIntervalSec: number;
+  postId: string;
+  waitTimeoutSec: number;
+}): Promise<z.infer<typeof postSchema>> {
   const deadline = Date.now() + options.waitTimeoutSec * 1000;
 
-  while (Date.now() <= deadline) {
-    const post = await getPostBeforeDeadline({
-      deadline, postId: options.postId, waitTimeoutSec: options.waitTimeoutSec,
-    });
-    if (post.state === 'published') {
-      writePost(post);
-      return;
+  try {
+    while (Date.now() <= deadline) {
+      const post = await getPostBeforeDeadline({
+        deadline, postId: options.postId, waitTimeoutSec: options.waitTimeoutSec,
+      });
+      if (post.state === 'published') {
+        return post;
+      }
+      guardPostActive(post);
+      writeWaitNotice(post);
+      await sleepBeforeNextPoll({
+        deadline, pollIntervalSec: options.pollIntervalSec, postId: post.id, waitTimeoutSec: options.waitTimeoutSec,
+      });
     }
-    guardPostActive(post);
-    writeWaitNotice(post);
-    await sleepBeforeNextPoll({
-      deadline, pollIntervalSec: options.pollIntervalSec, postId: post.id, waitTimeoutSec: options.waitTimeoutSec,
-    });
+
+    throwWaitTimeout(options.postId, options.waitTimeoutSec);
+  } finally {
+    clearWaitNotice();
   }
-  throwWaitTimeout(options.postId, options.waitTimeoutSec);
 }
 
 async function getPostBeforeDeadline(
@@ -769,7 +782,14 @@ function writeWaitNotice(post: z.infer<typeof postSchema>): void {
   if (getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
     return;
   }
-  process.stderr.write(`Waiting for social post ${post.id}: ${post.state}.\n`);
+  process.stderr.write(`\r\x1b[2KWaiting for social post ${post.id}: ${post.state}.`);
+}
+
+function clearWaitNotice(): void {
+  if (getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
+    return;
+  }
+  process.stderr.write('\r\x1b[2K');
 }
 
 function throwWaitTimeout(postId: string, waitTimeoutSec: number): never {

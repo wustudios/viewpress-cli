@@ -289,24 +289,36 @@ async function getAssetCommand(arguments_: string[]): Promise<void> {
 
 async function waitForAsset(arguments_: string[]): Promise<void> {
   const options = getWaitOptions(arguments_);
+  const asset = await getReadyAsset(options);
+  writeAsset(asset);
+}
+
+async function getReadyAsset(options: {
+  assetId: string;
+  pollIntervalSec: number;
+  waitTimeoutSec: number;
+}): Promise<z.infer<typeof assetSchema>> {
   const deadline = Date.now() + options.waitTimeoutSec * 1000;
 
-  while (Date.now() <= deadline) {
-    const asset = await getAssetBeforeDeadline({
-      assetId: options.assetId, deadline, waitTimeoutSec: options.waitTimeoutSec,
-    });
-    if (asset.status === 'ready') {
-      writeAsset(asset);
-      return;
+  try {
+    while (Date.now() <= deadline) {
+      const asset = await getAssetBeforeDeadline({
+        assetId: options.assetId, deadline, waitTimeoutSec: options.waitTimeoutSec,
+      });
+      if (asset.status === 'ready') {
+        return asset;
+      }
+      guardAssetActive(asset);
+      writeWaitNotice(asset);
+      await sleepBeforeNextPoll({
+        assetId: asset.id, deadline, pollIntervalSec: options.pollIntervalSec, waitTimeoutSec: options.waitTimeoutSec,
+      });
     }
-    guardAssetActive(asset);
-    writeWaitNotice(asset);
-    await sleepBeforeNextPoll({
-      assetId: asset.id, deadline, pollIntervalSec: options.pollIntervalSec, waitTimeoutSec: options.waitTimeoutSec,
-    });
-  }
 
-  throwWaitTimeout(options.assetId, options.waitTimeoutSec);
+    throwWaitTimeout(options.assetId, options.waitTimeoutSec);
+  } finally {
+    clearWaitNotice();
+  }
 }
 
 async function getAssetBeforeDeadline(
@@ -799,7 +811,14 @@ function writeWaitNotice(asset: z.infer<typeof assetSchema>): void {
     return;
   }
   const progress = asset.progress === undefined ? '' : ` (${String(asset.progress)}%)`;
-  process.stderr.write(`Waiting for asset ${asset.id}: ${asset.status}${progress}.\n`);
+  process.stderr.write(`\r\x1b[2KWaiting for asset ${asset.id}: ${asset.status}${progress}.`);
+}
+
+function clearWaitNotice(): void {
+  if (getRuntimeOptions().nonInteractive || !process.stderr.isTTY) {
+    return;
+  }
+  process.stderr.write('\r\x1b[2K');
 }
 
 function throwWaitTimeout(assetId: string, waitTimeoutSec: number): never {
