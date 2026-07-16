@@ -13,7 +13,17 @@ terminal status. This rule has important exceptions: video estimation returns
 ready asset with `kind` and `mimeType`. Project/video creation, social account
 connection, and social post creation also return their own synchronous result.
 
-There are 34 HTTP operations in 30 v1 route files.
+There are 36 HTTP operations in 31 v1 route files. Two of them serve
+machine-readable API documentation:
+
+| Operation | Request | HTTP 200 response |
+| --- | --- | --- |
+| `GET /openapi.json` | No input; no authentication. | OpenAPI 3.1 document for the v1 API, generated from the server's own validation schemas. |
+| `GET /renders` | No input; no authentication. | `{endpoint,description,body}`; `body` is the JSON schema of the `POST /renders` request with the timeline model expanded. |
+
+The CLI deliberately has no command for these two operations: they are
+machine-readable API and schema documentation rather than product operations,
+and any HTTP client can fetch them directly.
 
 ## Projects and videos
 
@@ -67,15 +77,15 @@ succeed for a request that generation later rejects.
 | `POST /music` | `{video_id,name,prompt,style,duration_seconds,instrumental_only?,description?}`. Prompt at least 3; style at least 2; duration 3..480; instrumental default true. | `{assetId,status:"pending"}` |
 | `POST /sfx` | `{video_id,name,prompt,duration_seconds?,prompt_influence?,description?}`. Prompt at least 3; duration 0.5..10, default 2; influence 0..1, default 0.5. | `{assetId,status:"pending"}` |
 | `POST /renders` | `{video_id,name,timeline}`. Timeline requires nonempty `tracks` and positive integer `durationInFrames`; optional `fps` is a positive integer; optional `backgroundColor`; extra timeline fields pass through. | `{assetId,status:"pending"}` |
-| `POST /media/imports` | `{video_id,url,name?}`. URL is an image/video/audio URL; name 1..120; server requires HTTPS, rejects non-public hostnames, requires an accepted MIME type, and limits the response to 50 MB. | `{assetId,status:"ready",kind,mimeType}` |
+| `POST /media/imports` | `{video_id,url,name?}`. URL must be a public HTTPS image/video/audio URL; name 1..120; the server requires an accepted MIME type and limits the response to 50 MB. | `{assetId,status:"ready",kind,mimeType}` |
 
 The render timeline is the Viewpress `TimelineComposition` tracks model. Track
 order sets visual stacking. Clip times use seconds; root duration uses frames.
 Asset URLs are resolved by the server from each clip's `assetId`.
 
 Media import URLs must point at a public network target. The CLI rejects
-literal non-public hostnames before sending a request; the full network
-boundary is described in the required
+literal non-public hostnames before sending a request; the required network
+boundary is specified in the
 [server contract](server-contracts.md#media-import-network-boundary).
 
 ## Assets and transforms

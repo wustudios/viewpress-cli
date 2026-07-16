@@ -6,7 +6,10 @@ const rootCommands = [
   'auth', 'projects', 'videos', 'credits', 'styles', 'voices', 'images',
   'assets', 'renders', 'social', 'media', 'speech', 'music', 'sfx',
 ];
+// Mirrors production GET /api/v1/openapi.json plus the spec route itself.
+// Update by hand against that spec; never fetch it live in this check.
 const apiOperations = [
+  'GET /openapi.json', 'GET /renders',
   'GET /projects', 'POST /projects', 'GET /videos', 'POST /videos',
   'GET /credits', 'GET /styles', 'POST /images/generations',
   'POST /images/edits', 'POST /videos/generations',

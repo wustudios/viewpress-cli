@@ -186,6 +186,10 @@ least one `tracks` entry and a positive integer `durationInFrames`. Optional
 `fps` must be a positive integer. `backgroundColor` and other timeline fields
 pass through to the server. `--json` is optional.
 
+The API also serves `GET /openapi.json` and `GET /renders`, which return
+machine-readable API and schema documentation. The CLI deliberately has no
+command for them; see the [API reference](api.md).
+
 `viewpress media import` requires `--video-id` and `--url <https-url>`.
 The CLI requires HTTPS without embedded credentials and rejects literal
 loopback, private, link-local, benchmark, carrier-grade NAT, multicast, and
