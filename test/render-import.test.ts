@@ -91,6 +91,25 @@ describe('render and media import commands', () => {
     });
     expect(requests[1]?.url.pathname).toBe('/api/v1/media/imports');
   });
+
+  test('accepts fd-prefixed domains and rejects private addresses for media import', async () => {
+    const domainImport = await runCli([
+      'media', 'import', '--video-id', 'video-3', '--url', 'https://fdsports.example/media/intro.mp4', '--json',
+    ]);
+    const privateIpv6Import = await runCli([
+      'media', 'import', '--video-id', 'video-3', '--url', 'https://[fd00::1]/media/intro.mp4', '--json',
+    ]);
+    const privateIpv4Import = await runCli([
+      'media', 'import', '--video-id', 'video-3', '--url', 'https://192.168.0.10/media/intro.mp4', '--json',
+    ]);
+
+    expect(domainImport.exitCode).toBe(0);
+    expect(requests.at(-1)?.body).toMatchObject({ url: 'https://fdsports.example/media/intro.mp4' });
+    expect(privateIpv6Import.exitCode).toBe(2);
+    expect(privateIpv6Import.stderr).toContain('public HTTPS URL');
+    expect(privateIpv4Import.exitCode).toBe(2);
+    expect(privateIpv4Import.stderr).toContain('public HTTPS URL');
+  });
 });
 
 async function handleRequest(request: Request): Promise<Response> {

@@ -163,37 +163,54 @@ function getPublicHttpsUrl(value: string | undefined): string {
 }
 
 function isNonPublicHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  const normalized = hostname.toLowerCase().replace(/\.$/, '');
 
-  if (
-    normalized === 'localhost'
-    || normalized.endsWith('.localhost')
-    || normalized === '::'
-    || normalized === '::1'
-  ) {
+  if (normalized === 'localhost' || normalized.endsWith('.localhost')) {
     return true;
   }
 
-  const octets = normalized.split('.').map(Number);
-  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
-    return normalized.startsWith('fc') || normalized.startsWith('fd') || /^fe[89ab]/.test(normalized);
+  if (normalized.startsWith('[') && normalized.endsWith(']')) {
+    return isPrivateIpv6(normalized.slice(1, -1));
   }
 
+  const octets = normalized.split('.').map(Number);
   const firstOctet = octets[0];
   const secondOctet = octets[1];
-  if (firstOctet === undefined || secondOctet === undefined) {
+  if (octets.length !== 4 || firstOctet === undefined || secondOctet === undefined
+    || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
     return false;
   }
 
-  return firstOctet === 0
-    || firstOctet === 10
-    || firstOctet === 127
-    || firstOctet >= 224
-    || (firstOctet === 100 && secondOctet >= 64 && secondOctet <= 127)
-    || (firstOctet === 169 && secondOctet === 254)
-    || (firstOctet === 172 && secondOctet >= 16 && secondOctet <= 31)
-    || (firstOctet === 192 && secondOctet === 168)
-    || (firstOctet === 198 && (secondOctet === 18 || secondOctet === 19));
+  return isPrivateIpv4(firstOctet, secondOctet);
+}
+
+function isPrivateIpv4(firstOctet: number, secondOctet: number): boolean {
+  if (firstOctet === 0 || firstOctet === 10 || firstOctet === 127 || firstOctet >= 224) {
+    return true;
+  }
+  if (firstOctet === 100) {
+    return secondOctet >= 64 && secondOctet <= 127;
+  }
+  if (firstOctet === 169) {
+    return secondOctet === 254;
+  }
+  if (firstOctet === 172) {
+    return secondOctet >= 16 && secondOctet <= 31;
+  }
+  if (firstOctet === 192) {
+    return secondOctet === 168;
+  }
+  if (firstOctet === 198) {
+    return secondOctet === 18 || secondOctet === 19;
+  }
+  return false;
+}
+
+function isPrivateIpv6(address: string): boolean {
+  if (address === '::' || address === '::1') {
+    return true;
+  }
+  return address.startsWith('fc') || address.startsWith('fd') || /^fe[89ab]/.test(address);
 }
 
 function showMediaHelp(): void {
