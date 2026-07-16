@@ -9,10 +9,10 @@ before or after a command.
 | --- | --- |
 | `--json` | Write one JSON result and disable interaction. |
 | `--non-interactive` | Do not open a browser, prompt, or write progress notices. |
-| `--api-url <url>` | Override `VIEWPRESS_API_URL` and the stored URL. HTTPS is required except for localhost. |
+| `--api-url <url>` | Override `VIEWPRESS_API_URL` and the stored URL. HTTPS is required, except HTTP is allowed for `localhost` and `127.0.0.1`. Credentials, a query, and a fragment are rejected. |
 | `--timeout <seconds>` | HTTP timeout. Default `30`; `VIEWPRESS_TIMEOUT` supplies the default. |
 | `-h`, `--help` | Show help. |
-| `-V`, `--version` | Show the installed version. |
+| `-V`, `--version` | Show the installed version. With `--json`, it is a `{"version":...}` data document. |
 
 `VIEWPRESS_API_KEY` overrides the stored key. `VIEWPRESS_CONFIG_DIR` overrides
 the system config folder. The default API URL is
@@ -290,7 +290,8 @@ whole value from stdin. A command can use one stdin-backed input. A direct
 ## Output contract
 
 Human success data is written to stdout. Lists print padded aligned columns
-when stdout is a terminal and tab-separated fields when piped. List timestamps
+under a dimmed header row when stdout is a terminal, and headerless
+tab-separated fields when piped. List timestamps
 (`createdAt`, `publishAt`, `connectedAt`) are ISO-8601, and credit amounts
 print with a `credits` unit. Empty lists print a short `No ...` line.
 
