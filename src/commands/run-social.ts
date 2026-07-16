@@ -121,6 +121,9 @@ export async function runSocial(arguments_: string[]): Promise<number> {
       return 0;
     }
     if (resource === undefined || (resource === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('A social command is required with --json.');
+      }
       showSocialHelp();
       return 0;
     }
@@ -173,6 +176,9 @@ async function runAccounts(arguments_: string[]): Promise<void> {
     return;
   }
   if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+    if (getRuntimeOptions().json) {
+      throw new CommandUsageError('A social accounts command is required with --json.');
+    }
     showAccountsHelp();
     return;
   }
@@ -302,6 +308,9 @@ async function runPosts(arguments_: string[]): Promise<void> {
     return;
   }
   if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+    if (getRuntimeOptions().json) {
+      throw new CommandUsageError('A social posts command is required with --json.');
+    }
     showPostsHelp();
     return;
   }

@@ -1,3 +1,4 @@
+import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { authLogin } from './auth-login.ts';
 import { authLogout } from './auth-logout.ts';
 import { authSetKey } from './auth-set-key.ts';
@@ -10,6 +11,9 @@ export async function runAuth(arguments_: string[]): Promise<number> {
   const command = arguments_[0];
 
   if (command === '--help') {
+    if (getRuntimeOptions().json) {
+      return writeError(new CommandUsageError('An auth command is required with --json.', 'auth'));
+    }
     showAuthHelp();
     return 0;
   }
@@ -47,6 +51,9 @@ export async function runAuth(arguments_: string[]): Promise<number> {
     }
 
     if (command === undefined) {
+      if (getRuntimeOptions().json) {
+        return writeError(new CommandUsageError('An auth command is required with --json.', 'auth'));
+      }
       showAuthHelp();
       return 0;
     }

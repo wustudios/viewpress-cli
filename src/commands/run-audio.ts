@@ -97,6 +97,9 @@ export async function runAudio(resource: 'music' | 'sfx' | 'speech', arguments_:
     }
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError(`A ${resource} command is required with --json.`);
+      }
       showAudioHelp(resource);
       return 0;
     }

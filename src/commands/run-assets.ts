@@ -117,6 +117,9 @@ export async function runAssets(arguments_: string[]): Promise<number> {
     const command = arguments_[0];
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('An assets command is required with --json.');
+      }
       showAssetsHelp();
       return 0;
     }

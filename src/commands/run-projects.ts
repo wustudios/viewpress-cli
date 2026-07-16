@@ -39,6 +39,9 @@ export async function runProjects(arguments_: string[]): Promise<number> {
     }
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('A projects command is required with --json.');
+      }
       showProjectsHelp();
       return 0;
     }

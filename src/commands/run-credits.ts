@@ -26,6 +26,9 @@ export async function runCredits(arguments_: string[]): Promise<number> {
     }
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('A credits command is required with --json.');
+      }
       showCreditsHelp();
       return 0;
     }

@@ -36,6 +36,9 @@ export async function runRenders(arguments_: string[]): Promise<number> {
     }
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('A renders command is required with --json.');
+      }
       showRendersHelp();
       return 0;
     }

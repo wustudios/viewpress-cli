@@ -68,6 +68,9 @@ export async function runImages(arguments_: string[]): Promise<number> {
     }
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('An images command is required with --json.');
+      }
       showImagesHelp();
       return 0;
     }

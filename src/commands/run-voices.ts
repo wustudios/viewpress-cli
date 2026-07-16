@@ -56,6 +56,9 @@ export async function runVoices(arguments_: string[]): Promise<number> {
     }
 
     if (command === undefined || (command === '--help' && arguments_.length === 1)) {
+      if (getRuntimeOptions().json) {
+        throw new CommandUsageError('A voices command is required with --json.');
+      }
       showVoicesHelp();
       return 0;
     }
