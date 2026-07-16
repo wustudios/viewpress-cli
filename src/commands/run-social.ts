@@ -126,8 +126,32 @@ export async function runSocial(arguments_: string[]): Promise<number> {
     }
     throw new CommandUsageError(`Unknown social resource: ${resource}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getSocialCommandPath(arguments_)),
+        'Social command failed.',
+      );
+    }
     return writeError(error, 'Social command failed.');
   }
+}
+
+function getSocialCommandPath(arguments_: string[]): string {
+  const resource = arguments_[0];
+  const command = arguments_[1];
+  if (resource === 'accounts') {
+    if (command === 'list' || command === 'connect') {
+      return `social accounts ${command}`;
+    }
+    return 'social accounts';
+  }
+  if (resource === 'posts') {
+    if (command === 'create' || command === 'list' || command === 'get' || command === 'wait' || command === 'cancel') {
+      return `social posts ${command}`;
+    }
+    return 'social posts';
+  }
+  return 'social';
 }
 
 async function runAccounts(arguments_: string[]): Promise<void> {

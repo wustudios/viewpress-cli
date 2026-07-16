@@ -62,8 +62,21 @@ export async function runVoices(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown voices command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getVoicesCommandPath(arguments_[0])),
+        'Voices command failed.',
+      );
+    }
     return writeError(error, 'Voices command failed.');
   }
+}
+
+function getVoicesCommandPath(command: string | undefined): string {
+  if (command === 'list') {
+    return 'voices list';
+  }
+  return 'voices';
 }
 
 async function listVoices(arguments_: string[]): Promise<void> {

@@ -124,8 +124,33 @@ export async function runAssets(arguments_: string[]): Promise<number> {
     await runAssetCommand(command, arguments_.slice(1));
     return 0;
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getAssetsCommandPath(arguments_[0])),
+        'Assets command failed.',
+      );
+    }
     return writeError(error, 'Assets command failed.');
   }
+}
+
+function getAssetsCommandPath(command: string | undefined): string {
+  if (
+    command === 'list' ||
+    command === 'get' ||
+    command === 'wait' ||
+    command === 'download' ||
+    command === 'add-captions' ||
+    command === 'upscale' ||
+    command === 'remove-background' ||
+    command === 'enhance-audio' ||
+    command === 'smooth' ||
+    command === 'humanize' ||
+    command === 'transcribe'
+  ) {
+    return `assets ${command}`;
+  }
+  return 'assets';
 }
 
 async function runAssetCommand(command: string, arguments_: string[]): Promise<void> {

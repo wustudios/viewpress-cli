@@ -32,8 +32,21 @@ export async function runCredits(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown credits command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getCreditsCommandPath(arguments_[0])),
+        'Credits command failed.',
+      );
+    }
     return writeError(error, 'Credits command failed.');
   }
+}
+
+function getCreditsCommandPath(command: string | undefined): string {
+  if (command === 'get') {
+    return 'credits get';
+  }
+  return 'credits';
 }
 
 async function getCredits(arguments_: string[]): Promise<void> {

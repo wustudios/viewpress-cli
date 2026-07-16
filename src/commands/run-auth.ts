@@ -23,7 +23,7 @@ export async function runAuth(arguments_: string[]): Promise<number> {
   }
 
   if (arguments_.length > 1) {
-    return writeError(new CommandUsageError('Auth commands do not accept additional arguments.'));
+    return writeError(new CommandUsageError('Auth commands do not accept additional arguments.', getAuthCommandPath(command)));
   }
 
   try {
@@ -51,10 +51,23 @@ export async function runAuth(arguments_: string[]): Promise<number> {
       return 0;
     }
 
-    return writeError(new CommandUsageError('Unknown auth command.'));
+    return writeError(new CommandUsageError('Unknown auth command.', 'auth'));
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getAuthCommandPath(command)),
+        'Authentication failed.',
+      );
+    }
     return writeError(error, 'Authentication failed.');
   }
+}
+
+function getAuthCommandPath(command: string | undefined): string {
+  if (command === 'login' || command === 'set-key' || command === 'status' || command === 'logout') {
+    return `auth ${command}`;
+  }
+  return 'auth';
 }
 
 function showAuthCommandHelp(command: 'login' | 'logout' | 'set-key' | 'status'): void {

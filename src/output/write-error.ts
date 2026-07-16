@@ -17,6 +17,10 @@ export function writeError(error: unknown, fallbackMessage = 'Command failed.'):
   if (error instanceof CliError && error.hint) {
     process.stderr.write(`Hint: ${error.hint}\n`);
   }
+  if (error instanceof CommandUsageError) {
+    const helpTarget = error.commandPath === undefined ? 'viewpress' : `viewpress ${error.commandPath}`;
+    process.stderr.write(`Run '${helpTarget} --help' for usage.\n`);
+  }
   return exitCode;
 }
 

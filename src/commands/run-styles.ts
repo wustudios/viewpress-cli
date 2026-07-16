@@ -48,8 +48,21 @@ export async function runStyles(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown styles command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getStylesCommandPath(arguments_[0])),
+        'Styles command failed.',
+      );
+    }
     return writeError(error, 'Styles command failed.');
   }
+}
+
+function getStylesCommandPath(command: string | undefined): string {
+  if (command === 'list') {
+    return 'styles list';
+  }
+  return 'styles';
 }
 
 async function listStyles(arguments_: string[]): Promise<void> {

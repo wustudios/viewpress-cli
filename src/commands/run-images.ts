@@ -74,8 +74,21 @@ export async function runImages(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown images command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getImagesCommandPath(arguments_[0])),
+        'Images command failed.',
+      );
+    }
     return writeError(error, 'Images command failed.');
   }
+}
+
+function getImagesCommandPath(command: string | undefined): string {
+  if (command === 'generate' || command === 'edit') {
+    return `images ${command}`;
+  }
+  return 'images';
 }
 
 async function generateImage(arguments_: string[]): Promise<void> {

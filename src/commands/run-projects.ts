@@ -45,8 +45,21 @@ export async function runProjects(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown projects command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getProjectsCommandPath(arguments_[0])),
+        'Projects command failed.',
+      );
+    }
     return writeError(error, 'Projects command failed.');
   }
+}
+
+function getProjectsCommandPath(command: string | undefined): string {
+  if (command === 'list' || command === 'create') {
+    return `projects ${command}`;
+  }
+  return 'projects';
 }
 
 async function listProjects(arguments_: string[]): Promise<void> {

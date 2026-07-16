@@ -36,8 +36,21 @@ export async function runMedia(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown media command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getMediaCommandPath(arguments_[0])),
+        'Media command failed.',
+      );
+    }
     return writeError(error, 'Media command failed.');
   }
+}
+
+function getMediaCommandPath(command: string | undefined): string {
+  if (command === 'import') {
+    return 'media import';
+  }
+  return 'media';
 }
 
 async function importMedia(arguments_: string[]): Promise<void> {

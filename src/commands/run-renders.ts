@@ -42,8 +42,21 @@ export async function runRenders(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown renders command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getRendersCommandPath(arguments_[0])),
+        'Renders command failed.',
+      );
+    }
     return writeError(error, 'Renders command failed.');
   }
+}
+
+function getRendersCommandPath(command: string | undefined): string {
+  if (command === 'create') {
+    return 'renders create';
+  }
+  return 'renders';
 }
 
 async function createRender(arguments_: string[]): Promise<void> {

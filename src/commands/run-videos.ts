@@ -74,8 +74,30 @@ export async function runVideos(arguments_: string[]): Promise<number> {
 
     throw new CommandUsageError(`Unknown videos command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getVideosCommandPath(arguments_[0])),
+        'Videos command failed.',
+      );
+    }
     return writeError(error, 'Videos command failed.');
   }
+}
+
+function getVideosCommandPath(command: string | undefined): string {
+  if (
+    command === 'list' ||
+    command === 'create' ||
+    command === 'generate' ||
+    command === 'estimate' ||
+    command === 'motion-transfer' ||
+    command === 'talking-image' ||
+    command === 'ugc-ad' ||
+    command === 'timelapse-scene'
+  ) {
+    return `videos ${command}`;
+  }
+  return 'videos';
 }
 
 async function listVideos(arguments_: string[]): Promise<void> {

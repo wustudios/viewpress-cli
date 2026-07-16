@@ -103,8 +103,21 @@ export async function runAudio(resource: 'music' | 'sfx' | 'speech', arguments_:
 
     throw new CommandUsageError(`Unknown ${resource} command: ${command}`);
   } catch (error) {
+    if (error instanceof CommandUsageError && error.commandPath === undefined) {
+      return writeError(
+        new CommandUsageError(error.message, getAudioCommandPath(resource, arguments_[0])),
+        `${resource} command failed.`,
+      );
+    }
     return writeError(error, `${resource} command failed.`);
   }
+}
+
+function getAudioCommandPath(resource: 'music' | 'sfx' | 'speech', command: string | undefined): string {
+  if (command === 'generate') {
+    return `${resource} generate`;
+  }
+  return resource;
 }
 
 async function generateAudio(resource: 'music' | 'sfx' | 'speech', arguments_: string[]): Promise<void> {
