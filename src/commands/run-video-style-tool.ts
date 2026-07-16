@@ -79,8 +79,17 @@ interface TalkingImageArgument {
 }
 
 interface UgcAdInput {
+  aspectRatio: string;
+  cameraNotes: string | undefined;
+  dialogue: string | undefined;
+  durationSec: string | undefined;
+  name: string | undefined;
   referenceImageAssetIds: string[];
-  values: Map<string, string>;
+  referenceVideoAssetId: string | undefined;
+  sceneNotes: string | undefined;
+  subjectDescription: string | undefined;
+  videoId: string | undefined;
+  voiceNotes: string | undefined;
 }
 
 interface UgcAdOptions {
@@ -101,10 +110,17 @@ interface UgcAdArgument {
   arguments_: string[];
   index: number;
   input: UgcAdInput;
+  seen: Set<string>;
 }
 
 interface TimelapseInput {
-  values: Map<string, string>;
+  aspectRatio: string;
+  name: string | undefined;
+  settingNotes: string | undefined;
+  startImageAssetId: string | undefined;
+  stepDescription: string | undefined;
+  videoId: string | undefined;
+  workerDescription: string | undefined;
 }
 
 interface TimelapseOptions {
@@ -121,6 +137,7 @@ interface TimelapseArgument {
   arguments_: string[];
   index: number;
   input: TimelapseInput;
+  seen: Set<string>;
 }
 
 export async function runVideoStyleTool(command: VideoStyleTool, arguments_: string[]): Promise<void> {
@@ -395,30 +412,35 @@ async function runUgcAd(arguments_: string[]): Promise<void> {
 
 function getUgcAdOptions(arguments_: string[]): UgcAdOptions {
   const input = getUgcAdInput(arguments_);
-  const subjectDescription = getUgcSubjectDescription(input.values);
-  const dialogue = getUgcDialogue(input.values);
-  const durationSec = getUgcDurationSec(input.values);
-  const aspectRatio = getUgcAspectRatio(input.values);
+  const subjectDescription = getUgcSubjectDescription(input.subjectDescription);
+  const dialogue = getUgcDialogue(input.dialogue);
+  const durationSec = getUgcDurationSec(input.durationSec);
+  const aspectRatio = getUgcAspectRatio(input.aspectRatio);
   guardUgcReferenceCount(input);
   return {
     aspectRatio,
-    cameraNotes: input.values.get('--camera-notes'),
+    cameraNotes: input.cameraNotes,
     dialogue,
     durationSec,
-    name: getName(input.values.get('--name'), 'UGC ad'),
+    name: getName(input.name, 'UGC ad'),
     referenceImageAssetIds: input.referenceImageAssetIds,
-    referenceVideoAssetId: input.values.get('--reference-video-asset-id'),
-    sceneNotes: input.values.get('--scene-notes'),
+    referenceVideoAssetId: input.referenceVideoAssetId,
+    sceneNotes: input.sceneNotes,
     subjectDescription,
-    videoId: getRequiredId(input.values.get('--video-id'), 'UGC ad requires --video-id.'),
-    voiceNotes: input.values.get('--voice-notes'),
+    videoId: getRequiredId(input.videoId, 'UGC ad requires --video-id.'),
+    voiceNotes: input.voiceNotes,
   };
 }
 
 function getUgcAdInput(arguments_: string[]): UgcAdInput {
-  const input: UgcAdInput = { referenceImageAssetIds: [], values: new Map() };
+  const input: UgcAdInput = {
+    aspectRatio: '9:16', cameraNotes: undefined, dialogue: undefined, durationSec: undefined,
+    name: undefined, referenceImageAssetIds: [], referenceVideoAssetId: undefined,
+    sceneNotes: undefined, subjectDescription: undefined, videoId: undefined, voiceNotes: undefined,
+  };
+  const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
-    index = readUgcAdArgument({ arguments_, index, input });
+    index = readUgcAdArgument({ arguments_, index, input, seen });
   }
   return input;
 }
@@ -429,42 +451,77 @@ function readUgcAdArgument(values: UgcAdArgument): number {
     values.input.referenceImageAssetIds.push(getOptionValue(values.arguments_, values.index, argument));
     return values.index + 1;
   }
-  const option = String(argument);
-  if (!ugcAdOptionNames.has(option) || values.input.values.has(option)) {
+  const property = getUgcAdProperty(argument);
+  if (!property) {
     throw unknownOption(argument);
   }
-  values.input.values.set(option, getOptionValue(values.arguments_, values.index, option));
+  guardNewOption(values.seen, property, String(argument));
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
   return values.index + 1;
 }
 
-function getUgcSubjectDescription(values: Map<string, string>): string {
-  const subjectDescription = z.string().min(10).safeParse(values.get('--subject-description'));
+function getUgcAdProperty(
+  argument: string | undefined,
+): keyof Omit<UgcAdInput, 'referenceImageAssetIds'> | null {
+  if (argument === '--aspect-ratio') {
+    return 'aspectRatio';
+  }
+  if (argument === '--camera-notes') {
+    return 'cameraNotes';
+  }
+  if (argument === '--dialogue') {
+    return 'dialogue';
+  }
+  if (argument === '--duration-sec') {
+    return 'durationSec';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--reference-video-asset-id') {
+    return 'referenceVideoAssetId';
+  }
+  if (argument === '--scene-notes') {
+    return 'sceneNotes';
+  }
+  if (argument === '--subject-description') {
+    return 'subjectDescription';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  if (argument === '--voice-notes') {
+    return 'voiceNotes';
+  }
+  return null;
+}
+
+function getUgcSubjectDescription(value: string | undefined): string {
+  const subjectDescription = z.string().min(10).safeParse(value);
   if (!subjectDescription.success) {
     throw new CommandUsageError('UGC ad requires --subject-description with at least 10 characters.');
   }
   return subjectDescription.data;
 }
 
-function getUgcDialogue(values: Map<string, string>): string {
-  const dialogue = z.string().min(2).max(400).safeParse(values.get('--dialogue'));
+function getUgcDialogue(value: string | undefined): string {
+  const dialogue = z.string().min(2).max(400).safeParse(value);
   if (!dialogue.success) {
     throw new CommandUsageError('UGC ad requires --dialogue with 2 to 400 characters.');
   }
   return dialogue.data;
 }
 
-function getUgcDurationSec(values: Map<string, string>): 4 | 6 | 8 | 10 {
-  const durationSec = z.union([z.literal(4), z.literal(6), z.literal(8), z.literal(10)]).safeParse(
-    Number(values.get('--duration-sec')),
-  );
+function getUgcDurationSec(value: string | undefined): 4 | 6 | 8 | 10 {
+  const durationSec = z.union([z.literal(4), z.literal(6), z.literal(8), z.literal(10)]).safeParse(Number(value));
   if (!durationSec.success) {
     throw new CommandUsageError('UGC ad --duration-sec must be 4, 6, 8, or 10.');
   }
   return durationSec.data;
 }
 
-function getUgcAspectRatio(values: Map<string, string>): '16:9' | '9:16' {
-  const aspectRatio = z.enum(['9:16', '16:9']).safeParse(values.get('--aspect-ratio') ?? '9:16');
+function getUgcAspectRatio(value: string): '16:9' | '9:16' {
+  const aspectRatio = z.enum(['9:16', '16:9']).safeParse(value);
   if (!aspectRatio.success) {
     throw new CommandUsageError('UGC ad --aspect-ratio must be 9:16 or 16:9.');
   }
@@ -472,24 +529,11 @@ function getUgcAspectRatio(values: Map<string, string>): '16:9' | '9:16' {
 }
 
 function guardUgcReferenceCount(input: UgcAdInput): void {
-  const referenceCap = input.values.has('--reference-video-asset-id') ? 5 : 7;
+  const referenceCap = input.referenceVideoAssetId === undefined ? 7 : 5;
   if (input.referenceImageAssetIds.length < 1 || input.referenceImageAssetIds.length > referenceCap) {
     throw new CommandUsageError(`UGC ad requires 1 to ${String(referenceCap)} --reference-image-asset-id values.`);
   }
 }
-
-const ugcAdOptionNames = new Set([
-  '--aspect-ratio',
-  '--camera-notes',
-  '--dialogue',
-  '--duration-sec',
-  '--name',
-  '--reference-video-asset-id',
-  '--scene-notes',
-  '--subject-description',
-  '--video-id',
-  '--voice-notes',
-]);
 
 async function runTimelapseScene(arguments_: string[]): Promise<void> {
   const options = getTimelapseOptions(arguments_);
@@ -518,62 +562,79 @@ async function runTimelapseScene(arguments_: string[]): Promise<void> {
 function getTimelapseOptions(arguments_: string[]): TimelapseOptions {
   const input = getTimelapseInput(arguments_);
   return {
-    aspectRatio: getTimelapseAspectRatio(input.values),
-    name: getName(input.values.get('--name'), 'Timelapse scene'),
-    settingNotes: input.values.get('--setting-notes'),
-    startImageAssetId: getRequiredId(
-      input.values.get('--start-image-asset-id'),
-      'Timelapse scene requires --start-image-asset-id.',
-    ),
-    stepDescription: getTimelapseStepDescription(input.values),
-    videoId: getRequiredId(input.values.get('--video-id'), 'Timelapse scene requires --video-id.'),
-    workerDescription: input.values.get('--worker-description'),
+    aspectRatio: getTimelapseAspectRatio(input.aspectRatio),
+    name: getName(input.name, 'Timelapse scene'),
+    settingNotes: input.settingNotes,
+    startImageAssetId: getRequiredId(input.startImageAssetId, 'Timelapse scene requires --start-image-asset-id.'),
+    stepDescription: getTimelapseStepDescription(input.stepDescription),
+    videoId: getRequiredId(input.videoId, 'Timelapse scene requires --video-id.'),
+    workerDescription: input.workerDescription,
   };
 }
 
 function getTimelapseInput(arguments_: string[]): TimelapseInput {
-  const input: TimelapseInput = { values: new Map<string, string>() };
+  const input: TimelapseInput = {
+    aspectRatio: '9:16', name: undefined, settingNotes: undefined, startImageAssetId: undefined,
+    stepDescription: undefined, videoId: undefined, workerDescription: undefined,
+  };
+  const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
-    index = readTimelapseArgument({ arguments_, index, input });
+    index = readTimelapseArgument({ arguments_, index, input, seen });
   }
   return input;
 }
 
 function readTimelapseArgument(values: TimelapseArgument): number {
-  const { arguments_, index, input } = values;
-  const argument = arguments_[index];
-  if (!timelapseOptionNames.has(String(argument)) || input.values.has(String(argument))) {
+  const argument = values.arguments_[values.index];
+  const property = getTimelapseProperty(argument);
+  if (!property) {
     throw unknownOption(argument);
   }
-  input.values.set(String(argument), getOptionValue(arguments_, index, String(argument)));
-  return index + 1;
+  guardNewOption(values.seen, property, String(argument));
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
 }
 
-function getTimelapseStepDescription(values: Map<string, string>): string {
-  const stepDescription = z.string().min(10).safeParse(values.get('--step-description'));
+function getTimelapseProperty(argument: string | undefined): keyof TimelapseInput | null {
+  if (argument === '--aspect-ratio') {
+    return 'aspectRatio';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--setting-notes') {
+    return 'settingNotes';
+  }
+  if (argument === '--start-image-asset-id') {
+    return 'startImageAssetId';
+  }
+  if (argument === '--step-description') {
+    return 'stepDescription';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  if (argument === '--worker-description') {
+    return 'workerDescription';
+  }
+  return null;
+}
+
+function getTimelapseStepDescription(value: string | undefined): string {
+  const stepDescription = z.string().min(10).safeParse(value);
   if (!stepDescription.success) {
     throw new CommandUsageError('Timelapse scene requires --step-description with at least 10 characters.');
   }
   return stepDescription.data;
 }
 
-function getTimelapseAspectRatio(values: Map<string, string>): '16:9' | '9:16' {
-  const aspectRatio = z.enum(['9:16', '16:9']).safeParse(values.get('--aspect-ratio') ?? '9:16');
+function getTimelapseAspectRatio(value: string): '16:9' | '9:16' {
+  const aspectRatio = z.enum(['9:16', '16:9']).safeParse(value);
   if (!aspectRatio.success) {
     throw new CommandUsageError('Timelapse scene --aspect-ratio must be 9:16 or 16:9.');
   }
   return aspectRatio.data;
 }
-
-const timelapseOptionNames = new Set([
-  '--aspect-ratio',
-  '--name',
-  '--setting-notes',
-  '--start-image-asset-id',
-  '--step-description',
-  '--video-id',
-  '--worker-description',
-]);
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
   const value = arguments_[index + 1];
