@@ -127,7 +127,7 @@ function guardNewGlobal(seen: Set<string>, option: string): void {
 
 function getGlobalValue(arguments_: string[], index: number, option: string): string {
   const value = arguments_[index + 1];
-  if (value === undefined || value.startsWith('--')) {
+  if (value === undefined || value.startsWith('-')) {
     throw new CommandUsageError(`${option} requires a value.`);
   }
 
