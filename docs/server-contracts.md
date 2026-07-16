@@ -94,37 +94,31 @@ asset status. Until then, no CLI flag should claim transcription completion.
 ## Video estimate validation and duration catalog
 
 `GET /api/v1/styles` currently reports `V-ULTRA` duration
-`{min:3,max:15}`, while the generation runtime rejects clips below 4 seconds.
-After request-schema and API-key checks, the estimate branch calculates credits
-and returns before checking video ownership, executable duration rules,
-model/reference compatibility, or input assets. It can therefore price a
-missing or foreign video, a 3-second `V-ULTRA` request, a transition without both
-frames, or another request that generation rejects.
+`{min:3,max:15}`, while generation requires at least 4 seconds. The CLI
+follows the generation limit and requires 4..15 seconds for both estimate and
+generation, but it does not duplicate every server generation rule, so an
+estimate remains a price calculation rather than a generation preflight.
 
-The CLI follows the executable generation limit and requires 4..15 seconds for
-both estimate and generation, but it does not duplicate every server generation
-rule. Before returning an estimate, the server should verify ownership and run
-the same pure duration, model, reference-count, and input-combination validation
-as generation. If asset existence and readiness are intentionally outside an
+A complete estimate contract runs the same pure duration, model,
+reference-count, and input-combination validation as generation before
+returning a price. If some generation checks are intentionally outside an
 estimate, that narrower guarantee should be explicit. The style catalog should
 also report the executable 4-second minimum.
 
 ## Media import network boundary
 
-`POST /api/v1/media/imports` checks that the original URL uses HTTPS and rejects
-some literal local and private hostname strings. It does not resolve the
-hostname before connecting. Its fetch follows redirects automatically, so
-redirect destinations receive no protocol, hostname, or resolved-address
-validation. The CLI rejects a broader set of literal non-public hostnames, but
-client checks cannot provide the server's network boundary.
+`POST /api/v1/media/imports` pulls a caller-supplied HTTPS URL. The CLI
+rejects literal non-public hostnames before sending a request, but client
+checks cannot provide the server's network boundary.
 
-Before every connection, the server must resolve the hostname and reject every
-non-public address returned, including loopback, private, link-local, carrier-
-grade NAT, benchmark, multicast, unspecified, and reserved ranges for IPv4 and
-IPv6. Fetch redirects manually with a small hop limit. For every redirect,
-parse the new URL, require HTTPS without embedded credentials, resolve it again,
-and apply the same address checks before connecting. The connection must use the
-validated result so a later DNS answer cannot redirect it to a rejected address.
+The full contract is: before every connection, resolve the hostname and reject
+every non-public address returned, including loopback, private, link-local,
+carrier-grade NAT, benchmark, multicast, unspecified, and reserved ranges for
+IPv4 and IPv6. Fetch redirects manually with a small hop limit. For every
+redirect, parse the new URL, require HTTPS without embedded credentials,
+resolve it again, and apply the same address checks before connecting. The
+connection must use the validated result so a later DNS answer cannot redirect
+it to a rejected address.
 
 ## Local file upload
 

@@ -99,12 +99,10 @@ The CLI applies the executable per-model duration rules before both commands:
 - `V-UGC`: 4, 6, 8, or 10 seconds
 
 The current style catalog reports a 3-second `V-ULTRA` minimum, but generation
-runtime rejects anything below 4 seconds. The CLI uses the runtime rule.
+rejects anything below 4 seconds. The CLI uses the generation rule.
 `estimate` returns `{status:"estimate",credits}` and does not create an asset.
-The server calculates that price before checking video ownership and the full
-generation-only model, reference, and input rules. An estimate can therefore
-succeed for a request that generation rejects; it is a price calculation, not
-a generation preflight.
+An estimate can succeed for a request that generation later rejects; it is a
+price calculation, not a generation preflight.
 
 ## Video style tools
 
@@ -191,9 +189,8 @@ pass through to the server. `--json` is optional.
 `viewpress media import` requires `--video-id` and `--url <https-url>`.
 The CLI requires HTTPS without embedded credentials and rejects literal
 loopback, private, link-local, benchmark, carrier-grade NAT, multicast, and
-private IPv6 hostnames. It does not resolve hostnames. The current server also
-checks only the original hostname text and follows redirects without validating
-their destinations, so these checks do not guarantee a public network target.
+private IPv6 hostnames. It does not resolve hostnames, so its checks are a
+client-side convenience rather than a network boundary.
 Optional: `--name <1..120 chars>` and `--json`. A successful import is ready
 immediately and returns `assetId`, `status`, `kind`, and `mimeType`.
 

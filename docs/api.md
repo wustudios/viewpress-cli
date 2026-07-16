@@ -53,14 +53,11 @@ end images; `V-LITE` start-to-end is fixed at 8 seconds; `V-PRO` references
 require 2..5 images of one subject; and only `V-ULTRA` accepts general
 reference video/audio.
 
-The current `GET /styles` catalog incorrectly reports a 3-second minimum for
-`V-ULTRA`, while generation runtime validation requires 4 seconds. The server
-estimate branch returns before video ownership, runtime duration validation,
-model/reference compatibility checks, and input asset validation. It can price
-a missing or foreign video, a 3-second `V-ULTRA` request, or another input that
-generation rejects. The CLI follows the generation duration rule and rejects
-`V-ULTRA` below 4 seconds for both commands, but an estimate is not a complete
-generation preflight.
+The current `GET /styles` catalog reports a 3-second minimum for `V-ULTRA`,
+while generation requires 4 seconds. The CLI follows the generation duration
+rule and rejects `V-ULTRA` below 4 seconds for both commands. An estimate is a
+price calculation, not a complete generation preflight, so an estimate can
+succeed for a request that generation later rejects.
 
 ## Audio and rendering
 
@@ -70,15 +67,15 @@ generation preflight.
 | `POST /music` | `{video_id,name,prompt,style,duration_seconds,instrumental_only?,description?}`. Prompt at least 3; style at least 2; duration 3..480; instrumental default true. | `{assetId,status:"pending"}` |
 | `POST /sfx` | `{video_id,name,prompt,duration_seconds?,prompt_influence?,description?}`. Prompt at least 3; duration 0.5..10, default 2; influence 0..1, default 0.5. | `{assetId,status:"pending"}` |
 | `POST /renders` | `{video_id,name,timeline}`. Timeline requires nonempty `tracks` and positive integer `durationInFrames`; optional `fps` is a positive integer; optional `backgroundColor`; extra timeline fields pass through. | `{assetId,status:"pending"}` |
-| `POST /media/imports` | `{video_id,url,name?}`. URL is an image/video/audio URL; name 1..120; server requires HTTPS, rejects some literal local/private hostnames, requires an accepted MIME type, and limits the response to 50 MB. | `{assetId,status:"ready",kind,mimeType}` |
+| `POST /media/imports` | `{video_id,url,name?}`. URL is an image/video/audio URL; name 1..120; server requires HTTPS, rejects non-public hostnames, requires an accepted MIME type, and limits the response to 50 MB. | `{assetId,status:"ready",kind,mimeType}` |
 
 The render timeline is the Viewpress `TimelineComposition` tracks model. Track
 order sets visual stacking. Clip times use seconds; root duration uses frames.
 Asset URLs are resolved by the server from each clip's `assetId`.
 
-Media import does not currently guarantee a public network target. The server
-does not resolve the original hostname before connecting and follows redirects
-without applying its hostname check to each destination. See the required
+Media import URLs must point at a public network target. The CLI rejects
+literal non-public hostnames before sending a request; the full network
+boundary is described in the required
 [server contract](server-contracts.md#media-import-network-boundary).
 
 ## Assets and transforms
