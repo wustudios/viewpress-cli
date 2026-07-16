@@ -145,9 +145,9 @@ function readVideoGenerationArgument(values: VideoGenerationArgument): number {
     referenceIds.push(getOptionValue(values.arguments_, values.index, String(argument)));
     return values.index + 1;
   }
-  if (argument === '--with-audio' || argument === '--no-audio') {
+  if (argument === '--audio' || argument === '--no-audio') {
     guardNewOption(values.seen, 'withAudio', argument);
-    values.input.withAudio = argument === '--with-audio';
+    values.input.withAudio = argument === '--audio';
     return values.index;
   }
   return readVideoGenerationValue(values);
@@ -424,5 +424,5 @@ function writeVideoGenerationResponse(
 }
 
 function showVideoGenerationHelp(command: 'estimate' | 'generate'): void {
-  process.stdout.write(`Usage: viewpress videos ${command} --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n\nOptions:\n  --aspect-ratio <1:1|9:16|16:9>       Default: 9:16\n  --with-audio | --no-audio            Default: --with-audio\n  --start-image-asset-id <id>\n  --end-image-asset-id <id>\n  --reference-image-asset-id <id>       Repeat up to 9 times\n  --reference-video-asset-id <id>       Repeat up to 3 times\n  --reference-audio-asset-id <id>       Repeat up to 3 times\n  --negative-prompt <text>\n  --json\n`);
+  process.stdout.write(`Usage: viewpress videos ${command} --video-id <id> --name <name> (--prompt <text> | --prompt-file <path|->) --model <model> --duration-sec <seconds> [options]\n\nOptions:\n  --aspect-ratio <1:1|9:16|16:9>       Default: 9:16\n  --audio | --no-audio                 Default: --audio\n  --start-image-asset-id <id>\n  --end-image-asset-id <id>\n  --reference-image-asset-id <id>       Repeat up to 9 times\n  --reference-video-asset-id <id>       Repeat up to 3 times\n  --reference-audio-asset-id <id>       Repeat up to 3 times\n  --negative-prompt <text>\n  --json\n`);
 }

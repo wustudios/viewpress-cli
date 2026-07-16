@@ -141,7 +141,7 @@ describe('video generation commands', () => {
         '-',
         '--character-orientation',
         'image',
-        '--no-original-sound',
+        '--no-keep-original-sound',
       ],
       'Keep the red jacket',
     );

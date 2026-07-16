@@ -219,7 +219,7 @@ function getMotionTransferInput(arguments_: string[]): MotionTransferInput {
 
 function readMotionTransferArgument(values: MotionTransferArgument): number {
   const argument = values.arguments_[values.index];
-  if (argument === '--keep-original-sound' || argument === '--no-original-sound') {
+  if (argument === '--keep-original-sound' || argument === '--no-keep-original-sound') {
     guardNewOption(values.seen, 'keepOriginalSound', argument);
     values.input.keepOriginalSound = argument === '--keep-original-sound';
     return values.index;
@@ -708,7 +708,7 @@ function writePendingAssetResponse(response: z.infer<typeof pendingAssetResponse
 
 function showStyleToolHelp(command: VideoStyleTool): void {
   if (command === 'motion-transfer') {
-    process.stdout.write('Usage: viewpress videos motion-transfer --video-id <id> --name <name> --image-asset-id <id> --motion-video-asset-id <id> [--character-orientation <image|video>] [--prompt <text> | --prompt-file <path|->] [--keep-original-sound | --no-original-sound] [--json]\n\nDefaults: --character-orientation video, --keep-original-sound\n');
+    process.stdout.write('Usage: viewpress videos motion-transfer --video-id <id> --name <name> --image-asset-id <id> --motion-video-asset-id <id> [--character-orientation <image|video>] [--prompt <text> | --prompt-file <path|->] [--keep-original-sound | --no-keep-original-sound] [--json]\n\nDefaults: --character-orientation video, --keep-original-sound\n');
     return;
   }
   if (command === 'talking-image') {
