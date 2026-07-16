@@ -119,7 +119,7 @@ async function listVideos(arguments_: string[]): Promise<void> {
     return;
   }
 
-  writeTable(response.videos.map((video) => [
+  writeTable(['id', 'name', 'createdAt', 'url'], response.videos.map((video) => [
     video.id,
     video.name,
     new Date(video.createdAt).toISOString(),

@@ -201,7 +201,7 @@ async function listAccounts(arguments_: string[]): Promise<void> {
     process.stdout.write('No social accounts.\n');
     return;
   }
-  writeTable(response.accounts.map((account) => [
+  writeTable(['id', 'platform', 'username', 'status', 'connectedAt'], response.accounts.map((account) => [
     account.id,
     account.platform,
     account.username ?? account.displayName ?? '-',
@@ -493,7 +493,7 @@ async function listPosts(arguments_: string[]): Promise<void> {
     process.stdout.write('No social posts.\n');
     return;
   }
-  writeTable(response.posts.map(getPostRow));
+  writeTable(['id', 'platform', 'state', 'account', 'publishAt', 'url'], response.posts.map(getPostRow));
 }
 
 function getListPostOptions(arguments_: string[]): { limit: number; projectId: string } {
@@ -764,7 +764,7 @@ function writePost(post: z.infer<typeof postSchema>): void {
     writeJson(post);
     return;
   }
-  writeTable([getPostRow(post)]);
+  writeTable(['id', 'platform', 'state', 'account', 'publishAt', 'url'], [getPostRow(post)]);
 }
 
 function getPostRow(post: z.infer<typeof postSchema>): string[] {

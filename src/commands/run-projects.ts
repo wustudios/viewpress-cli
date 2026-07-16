@@ -84,7 +84,7 @@ async function listProjects(arguments_: string[]): Promise<void> {
     return;
   }
 
-  writeTable(response.projects.map((project) => [
+  writeTable(['id', 'name', 'createdAt'], response.projects.map((project) => [
     project.id,
     project.name,
     new Date(project.createdAt).toISOString(),

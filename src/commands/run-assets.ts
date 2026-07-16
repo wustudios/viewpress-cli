@@ -219,7 +219,7 @@ async function listAssets(arguments_: string[]): Promise<void> {
     process.stdout.write('No assets.\n');
     return;
   }
-  writeTable(response.assets.map(getAssetRow));
+  writeTable(['id', 'kind', 'status', 'name', 'createdAt', 'url'], response.assets.map(getAssetRow));
 }
 
 function getListOptions(arguments_: string[]): AssetListOptions {
@@ -792,7 +792,7 @@ function writeAsset(asset: z.infer<typeof assetSchema>): void {
     writeJson(asset);
     return;
   }
-  writeTable([getAssetRow(asset)]);
+  writeTable(['id', 'kind', 'status', 'name', 'createdAt', 'url'], [getAssetRow(asset)]);
 }
 
 function getAssetRow(asset: z.infer<typeof assetSchema>): string[] {

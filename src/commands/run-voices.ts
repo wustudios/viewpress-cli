@@ -106,7 +106,7 @@ async function listVoices(arguments_: string[]): Promise<void> {
     voice.language ?? '-',
   ]);
   const presetRows = response.presets.map((preset) => [preset, preset, 'preset', '-', '-']);
-  writeTable([...voiceRows, ...presetRows]);
+  writeTable(['id', 'name', 'type', 'gender', 'language'], [...voiceRows, ...presetRows]);
 }
 
 function getVoiceOptions(arguments_: string[]): VoiceOptions {

@@ -90,7 +90,7 @@ async function listStyles(arguments_: string[]): Promise<void> {
     `${String(style.creditsPerSecond)} credits/s`,
   ]);
   const modelRows = response.imageModels.map((model) => [model.code, 'image', '-', `${String(model.credits)} credits`]);
-  writeTable([...styleRows, ...modelRows]);
+  writeTable(['code', 'label', 'duration', 'credits'], [...styleRows, ...modelRows]);
 }
 
 function guardNoArguments(arguments_: string[]): void {
