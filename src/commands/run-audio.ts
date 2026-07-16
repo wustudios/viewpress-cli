@@ -72,6 +72,13 @@ interface SfxArgument {
   seen: Set<string>;
 }
 
+interface SpeechArgument {
+  arguments_: string[];
+  index: number;
+  input: SpeechInput;
+  seen: Set<string>;
+}
+
 interface SpeechInput {
   emotion: string | undefined;
   englishNormalization: boolean | undefined;
@@ -185,19 +192,19 @@ function getSpeechInput(arguments_: string[]): SpeechInput {
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
-    index = readSpeechArgument(arguments_, index, input, seen);
+    index = readSpeechArgument({ arguments_, index, input, seen });
   }
 
   return input;
 }
 
-function readSpeechArgument(arguments_: string[], index: number, input: SpeechInput, seen: Set<string>): number {
-  const argument = arguments_[index];
+function readSpeechArgument(values: SpeechArgument): number {
+  const argument = values.arguments_[values.index];
 
   if (argument === '--english-normalization' || argument === '--no-english-normalization') {
-    guardNewOption(seen, 'englishNormalization', argument);
-    input.englishNormalization = argument === '--english-normalization';
-    return index;
+    guardNewOption(values.seen, 'englishNormalization', argument);
+    values.input.englishNormalization = argument === '--english-normalization';
+    return values.index;
   }
 
   const property = getSpeechProperty(argument);
@@ -205,14 +212,14 @@ function readSpeechArgument(arguments_: string[], index: number, input: SpeechIn
     throwUnknownArgument(argument);
   }
   if (property === 'text' || property === 'textFile') {
-    guardTextOption(seen, property, String(argument));
+    guardTextOption(values.seen, property, String(argument));
   } else if (property === 'voicePreset' || property === 'voiceRecordId') {
-    guardVoiceOption(seen, property, String(argument));
+    guardVoiceOption(values.seen, property, String(argument));
   } else {
-    guardNewOption(seen, property, String(argument));
+    guardNewOption(values.seen, property, String(argument));
   }
-  input[property] = getOptionValue(arguments_, index, String(argument));
-  return index + 1;
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
 }
 
 function getSpeechProperty(argument: string | undefined): keyof Omit<SpeechInput, 'englishNormalization'> | null {

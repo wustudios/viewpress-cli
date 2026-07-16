@@ -311,21 +311,21 @@ async function waitForAsset(arguments_: string[]): Promise<void> {
 }
 
 async function getAssetBeforeDeadline(
-  arguments_: { assetId: string; deadline: number; waitTimeoutSec: number },
+  values: { assetId: string; deadline: number; waitTimeoutSec: number },
 ): Promise<z.infer<typeof assetSchema>> {
-  const remainingMs = arguments_.deadline - Date.now();
+  const remainingMs = values.deadline - Date.now();
   if (remainingMs <= 0) {
-    throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
+    throwWaitTimeout(values.assetId, values.waitTimeoutSec);
   }
   try {
-    const asset = await getAsset(arguments_.assetId, remainingMs);
-    if (Date.now() >= arguments_.deadline) {
-      throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
+    const asset = await getAsset(values.assetId, remainingMs);
+    if (Date.now() >= values.deadline) {
+      throwWaitTimeout(values.assetId, values.waitTimeoutSec);
     }
     return asset;
   } catch (error) {
-    if (Date.now() >= arguments_.deadline) {
-      throwWaitTimeout(arguments_.assetId, arguments_.waitTimeoutSec);
+    if (Date.now() >= values.deadline) {
+      throwWaitTimeout(values.assetId, values.waitTimeoutSec);
     }
     throw error;
   }

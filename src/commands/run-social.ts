@@ -562,21 +562,21 @@ async function waitForPost(arguments_: string[]): Promise<void> {
 }
 
 async function getPostBeforeDeadline(
-  arguments_: { deadline: number; postId: string; waitTimeoutSec: number },
+  values: { deadline: number; postId: string; waitTimeoutSec: number },
 ): Promise<z.infer<typeof postSchema>> {
-  const remainingMs = arguments_.deadline - Date.now();
+  const remainingMs = values.deadline - Date.now();
   if (remainingMs <= 0) {
-    throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
+    throwWaitTimeout(values.postId, values.waitTimeoutSec);
   }
   try {
-    const post = await getPost(arguments_.postId, remainingMs);
-    if (Date.now() >= arguments_.deadline) {
-      throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
+    const post = await getPost(values.postId, remainingMs);
+    if (Date.now() >= values.deadline) {
+      throwWaitTimeout(values.postId, values.waitTimeoutSec);
     }
     return post;
   } catch (error) {
-    if (Date.now() >= arguments_.deadline) {
-      throwWaitTimeout(arguments_.postId, arguments_.waitTimeoutSec);
+    if (Date.now() >= values.deadline) {
+      throwWaitTimeout(values.postId, values.waitTimeoutSec);
     }
     throw error;
   }
