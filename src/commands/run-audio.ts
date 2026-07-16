@@ -37,12 +37,39 @@ const voicePresetSchema = z.enum([
 ]);
 const emotionSchema = z.enum(['happy', 'sad', 'angry', 'fearful', 'disgusted', 'surprised', 'neutral']);
 
-interface CommonInput {
+interface MusicInput {
   description: string | undefined;
+  durationSeconds: string | undefined;
+  instrumentalOnly: boolean;
   name: string | undefined;
   prompt: string | undefined;
   promptFile: string | undefined;
+  style: string | undefined;
   videoId: string | undefined;
+}
+
+interface MusicArgument {
+  arguments_: string[];
+  index: number;
+  input: MusicInput;
+  seen: Set<string>;
+}
+
+interface SfxInput {
+  description: string | undefined;
+  durationSeconds: string;
+  name: string | undefined;
+  prompt: string | undefined;
+  promptFile: string | undefined;
+  promptInfluence: string;
+  videoId: string | undefined;
+}
+
+interface SfxArgument {
+  arguments_: string[];
+  index: number;
+  input: SfxInput;
+  seen: Set<string>;
 }
 
 interface SpeechInput {
@@ -235,9 +262,9 @@ function getSpeechOptions(input: SpeechInput, textInput: string | undefined): {
 }
 
 async function generateMusic(arguments_: string[]): Promise<void> {
-  const input = getCommonInput(arguments_, 'music', { instrumentalOnly: true });
-  const prompt = await getFileInput(input.common.prompt, input.common.promptFile);
-  const common = getCommonOptions(input.common, prompt, 'Music');
+  const input = getMusicInput(arguments_);
+  const common = getCommonValues(input.videoId, input.name);
+  const prompt = getRequiredPrompt(await getFileInput(input.prompt, input.promptFile), 'Music');
   const style = styleSchema.safeParse(input.style);
   if (!style.success) {
     throw new CommandUsageError('Music generate requires --style with at least 2 characters.');
@@ -245,11 +272,11 @@ async function generateMusic(arguments_: string[]): Promise<void> {
   const durationSeconds = getRequiredNumber(input.durationSeconds, 3, 480, 'Music --duration-seconds must be a number from 3 to 480.');
   const response = await getApiResponse({
     body: {
-      description: common.description,
+      description: input.description,
       duration_seconds: durationSeconds,
       instrumental_only: input.instrumentalOnly,
       name: common.name,
-      prompt: common.prompt,
+      prompt,
       style: style.data,
       video_id: common.videoId,
     },
@@ -260,18 +287,75 @@ async function generateMusic(arguments_: string[]): Promise<void> {
   writeAudioResponse('music', response);
 }
 
+function getMusicInput(arguments_: string[]): MusicInput {
+  const input: MusicInput = {
+    description: undefined, durationSeconds: undefined, instrumentalOnly: true, name: undefined,
+    prompt: undefined, promptFile: undefined, style: undefined, videoId: undefined,
+  };
+  const seen = new Set<string>();
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    index = readMusicArgument({ arguments_, index, input, seen });
+  }
+
+  return input;
+}
+
+function readMusicArgument(values: MusicArgument): number {
+  const argument = values.arguments_[values.index];
+
+  if (argument === '--instrumental-only' || argument === '--no-instrumental-only') {
+    guardNewOption(values.seen, 'instrumentalOnly', argument, 'music');
+    values.input.instrumentalOnly = argument === '--instrumental-only';
+    return values.index;
+  }
+
+  const property = getMusicProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown, repeated, or conflicting music option: ${String(argument)}`);
+  }
+  guardNewOption(values.seen, property, String(argument), 'music');
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
+}
+
+function getMusicProperty(argument: string | undefined): keyof Omit<MusicInput, 'instrumentalOnly'> | null {
+  if (argument === '--description') {
+    return 'description';
+  }
+  if (argument === '--duration-seconds') {
+    return 'durationSeconds';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--prompt') {
+    return 'prompt';
+  }
+  if (argument === '--prompt-file') {
+    return 'promptFile';
+  }
+  if (argument === '--style') {
+    return 'style';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  return null;
+}
+
 async function generateSfx(arguments_: string[]): Promise<void> {
-  const input = getCommonInput(arguments_, 'sfx', { durationSeconds: '2', promptInfluence: '0.5' });
-  const prompt = await getFileInput(input.common.prompt, input.common.promptFile);
-  const common = getCommonOptions(input.common, prompt, 'SFX');
+  const input = getSfxInput(arguments_);
+  const common = getCommonValues(input.videoId, input.name);
+  const prompt = getRequiredPrompt(await getFileInput(input.prompt, input.promptFile), 'SFX');
   const durationSeconds = getRequiredNumber(input.durationSeconds, 0.5, 10, 'SFX --duration-seconds must be a number from 0.5 to 10.');
   const promptInfluence = getRequiredNumber(input.promptInfluence, 0, 1, 'SFX --prompt-influence must be a number from 0 to 1.');
   const response = await getApiResponse({
     body: {
-      description: common.description,
+      description: input.description,
       duration_seconds: durationSeconds,
       name: common.name,
-      prompt: common.prompt,
+      prompt,
       prompt_influence: promptInfluence,
       video_id: common.videoId,
     },
@@ -282,98 +366,62 @@ async function generateSfx(arguments_: string[]): Promise<void> {
   writeAudioResponse('sfx', response);
 }
 
-function getCommonInput(
-  arguments_: string[],
-  resource: 'music' | 'sfx',
-  defaults: { durationSeconds?: string; instrumentalOnly?: boolean; promptInfluence?: string },
-): {
-  common: CommonInput;
-  durationSeconds: string | undefined;
-  instrumentalOnly: boolean | undefined;
-  promptInfluence: string | undefined;
-  style: string | undefined;
-} {
-  const result = {
-    common: { description: undefined, name: undefined, prompt: undefined, promptFile: undefined, videoId: undefined },
-    durationSeconds: defaults.durationSeconds,
-    instrumentalOnly: defaults.instrumentalOnly,
-    promptInfluence: defaults.promptInfluence,
-    style: undefined as string | undefined,
+function getSfxInput(arguments_: string[]): SfxInput {
+  const input: SfxInput = {
+    description: undefined, durationSeconds: '2', name: undefined,
+    prompt: undefined, promptFile: undefined, promptInfluence: '0.5', videoId: undefined,
   };
   const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
-    index = readCommonArgument(arguments_, index, resource, result, seen);
+    index = readSfxArgument({ arguments_, index, input, seen });
   }
 
-  return result;
+  return input;
 }
 
-function readCommonArgument(
-  arguments_: string[],
-  index: number,
-  resource: 'music' | 'sfx',
-  result: ReturnType<typeof getCommonInput>,
-  seen: Set<string>,
-): number {
-  const argument = arguments_[index];
-  if (resource === 'music' && (argument === '--instrumental-only' || argument === '--no-instrumental-only')) {
-    guardNewOption(seen, 'instrumentalOnly', argument, resource);
-    result.instrumentalOnly = argument === '--instrumental-only';
-    return index;
+function readSfxArgument(values: SfxArgument): number {
+  const argument = values.arguments_[values.index];
+  const property = getSfxProperty(argument);
+  if (!property) {
+    throw new CommandUsageError(`Unknown, repeated, or conflicting sfx option: ${String(argument)}`);
   }
-  const property = getCommonProperty(argument, resource);
-  if (property) {
-    guardNewOption(seen, property, String(argument), resource);
-    setCommonProperty(result, property, getOptionValue(arguments_, index, String(argument)));
-    return index + 1;
-  }
-  throw new CommandUsageError(`Unknown, repeated, or conflicting ${resource} option: ${String(argument)}`);
+  guardNewOption(values.seen, property, String(argument), 'sfx');
+  values.input[property] = getOptionValue(values.arguments_, values.index, String(argument));
+  return values.index + 1;
 }
 
-function getCommonProperty(argument: string | undefined, resource: 'music' | 'sfx'): string | null {
-  const commonProperties: Record<string, string> = {
-    '--description': 'description',
-    '--duration-seconds': 'durationSeconds',
-    '--name': 'name',
-    '--prompt': 'prompt',
-    '--prompt-file': 'promptFile',
-    '--video-id': 'videoId',
-  };
-  if (argument && argument in commonProperties) {
-    return commonProperties[argument] ?? null;
+function getSfxProperty(argument: string | undefined): keyof SfxInput | null {
+  if (argument === '--description') {
+    return 'description';
   }
-  if (resource === 'music' && argument === '--style') {
-    return 'style';
+  if (argument === '--duration-seconds') {
+    return 'durationSeconds';
   }
-  if (resource === 'sfx' && argument === '--prompt-influence') {
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--prompt') {
+    return 'prompt';
+  }
+  if (argument === '--prompt-file') {
+    return 'promptFile';
+  }
+  if (argument === '--prompt-influence') {
     return 'promptInfluence';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
   }
   return null;
 }
 
-function setCommonProperty(result: ReturnType<typeof getCommonInput>, property: string, value: string): void {
-  if (property === 'description' || property === 'name' || property === 'prompt' || property === 'promptFile' || property === 'videoId') {
-    result.common[property] = value;
-    return;
-  }
-  if (property === 'durationSeconds' || property === 'promptInfluence' || property === 'style') {
-    result[property] = value;
-  }
-}
-
-function getCommonOptions(input: CommonInput, promptInput: string | undefined, label: string): {
-  description: string | undefined;
-  name: string;
-  prompt: string;
-  videoId: string;
-} {
-  const common = getCommonValues(input.videoId, input.name);
+function getRequiredPrompt(promptInput: string | undefined, label: string): string {
   const prompt = promptSchema.safeParse(promptInput);
   if (!prompt.success) {
     throw new CommandUsageError(`${label} generate requires --prompt or --prompt-file with at least 3 characters.`);
   }
-  return { description: input.description, name: common.name, prompt: prompt.data, videoId: common.videoId };
+  return prompt.data;
 }
 
 function getCommonValues(videoIdInput: string | undefined, nameInput: string | undefined): { name: string; videoId: string } {
