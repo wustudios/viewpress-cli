@@ -457,7 +457,7 @@ function parseOptionsJson(text: string): unknown {
   }
 }
 
-function getPlatformOptions(value: unknown, platform: z.infer<typeof platformSchema>): Record<string, unknown> {
+function getPlatformOptions(value: unknown, platform: z.infer<typeof platformSchema>): Record<string, unknown> | undefined {
   if (platform === 'youtube') {
     const parsed = youtubeOptionsSchema.safeParse(value);
     if (!parsed.success) {
@@ -474,9 +474,9 @@ function getPlatformOptions(value: unknown, platform: z.infer<typeof platformSch
   }
   const parsed = instagramOptionsSchema.safeParse(value);
   if (!parsed.success) {
-    throw new CommandUsageError('Social posts --options contains invalid instagram options.');
+    throw new CommandUsageError('Instagram posts accept no --options; provide an empty JSON object or omit the flag.');
   }
-  return parsed.data;
+  return undefined;
 }
 
 async function listPosts(arguments_: string[]): Promise<void> {
