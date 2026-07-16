@@ -183,8 +183,6 @@ function getValidatedVoiceOptions(options: {
     throw new CommandUsageError('Voices list requires --project-id.');
   }
 
-  const projectId = options.projectId;
-
   const parsedGender = genderSchema.safeParse(options.gender);
 
   if (options.gender !== undefined && !parsedGender.success) {
@@ -192,7 +190,12 @@ function getValidatedVoiceOptions(options: {
   }
 
   const limit = getLimit(options.limit);
-  return getVoiceOptionsResult({ ...options, projectId }, parsedGender.data, limit);
+  return {
+    ...(parsedGender.data === undefined ? {} : { gender: parsedGender.data }),
+    ...(limit === undefined ? {} : { limit }),
+    projectId: options.projectId,
+    ...(options.query === undefined ? {} : { query: options.query }),
+  };
 }
 
 function getLimit(value: string | undefined): number | undefined {
@@ -207,19 +210,6 @@ function getLimit(value: string | undefined): number | undefined {
   }
 
   return limit;
-}
-
-function getVoiceOptionsResult(
-  options: { projectId: string; query: string | undefined },
-  gender: 'male' | 'female' | 'neutral' | undefined,
-  limit: number | undefined,
-): VoiceOptions {
-  return {
-    ...(gender === undefined ? {} : { gender }),
-    ...(limit === undefined ? {} : { limit }),
-    projectId: options.projectId,
-    ...(options.query === undefined ? {} : { query: options.query }),
-  };
 }
 
 function getVoiceQuery(options: VoiceOptions): URLSearchParams {
