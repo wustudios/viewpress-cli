@@ -194,35 +194,41 @@ function readSpeechArgument(arguments_: string[], index: number, input: SpeechIn
   throw new CommandUsageError(`Unknown, repeated, or conflicting speech option: ${String(argument)}`);
 }
 
-function getSpeechProperty(argument: string | undefined): keyof Pick<
-  SpeechInput,
-  | 'emotion'
-  | 'languageBoost'
-  | 'name'
-  | 'pitch'
-  | 'speed'
-  | 'text'
-  | 'textFile'
-  | 'videoId'
-  | 'voicePreset'
-  | 'voiceRecordId'
-  | 'vol'
-> | null {
-  const properties = {
-    '--emotion': 'emotion',
-    '--language-boost': 'languageBoost',
-    '--name': 'name',
-    '--pitch': 'pitch',
-    '--speed': 'speed',
-    '--text': 'text',
-    '--text-file': 'textFile',
-    '--video-id': 'videoId',
-    '--voice-preset': 'voicePreset',
-    '--voice-record-id': 'voiceRecordId',
-    '--vol': 'vol',
-  } as const;
-
-  return argument && argument in properties ? properties[argument as keyof typeof properties] : null;
+function getSpeechProperty(argument: string | undefined): keyof Omit<SpeechInput, 'englishNormalization'> | null {
+  if (argument === '--emotion') {
+    return 'emotion';
+  }
+  if (argument === '--language-boost') {
+    return 'languageBoost';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--pitch') {
+    return 'pitch';
+  }
+  if (argument === '--speed') {
+    return 'speed';
+  }
+  if (argument === '--text') {
+    return 'text';
+  }
+  if (argument === '--text-file') {
+    return 'textFile';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  if (argument === '--voice-preset') {
+    return 'voicePreset';
+  }
+  if (argument === '--voice-record-id') {
+    return 'voiceRecordId';
+  }
+  if (argument === '--vol') {
+    return 'vol';
+  }
+  return null;
 }
 
 function getSpeechOptions(input: SpeechInput, textInput: string | undefined): {

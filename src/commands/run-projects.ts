@@ -12,6 +12,10 @@ const projectsResponseSchema = z.object({
 const projectResponseSchema = z.object({ id: z.string(), name: z.string() });
 const projectNameSchema = z.string().min(1).max(120);
 
+interface CreateProjectInput {
+  name: string | undefined;
+}
+
 export async function runProjects(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -91,27 +95,48 @@ async function createProject(arguments_: string[]): Promise<void> {
 }
 
 function getCreateProjectOptions(arguments_: string[]): { name: string } {
-  let name: string | undefined;
-
-  for (let index = 0; index < arguments_.length; index += 1) {
-    const argument = arguments_[index];
-
-    if (argument === '--name' && name === undefined) {
-      name = getOptionValue(arguments_, index, '--name');
-      index += 1;
-      continue;
-    }
-
-    throw new CommandUsageError(`Unknown or repeated projects create option: ${String(argument)}`);
-  }
-
-  const parsedName = projectNameSchema.safeParse(name);
+  const input = getCreateProjectInput(arguments_);
+  const parsedName = projectNameSchema.safeParse(input.name);
 
   if (!parsedName.success) {
     throw new CommandUsageError('Projects create requires --name with 1 to 120 characters.');
   }
 
   return { name: parsedName.data };
+}
+
+function getCreateProjectInput(arguments_: string[]): CreateProjectInput {
+  const input: CreateProjectInput = { name: undefined };
+  const seen = new Set<string>();
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+
+    const property = getCreateProjectProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated projects create option: ${String(argument)}`);
+    }
+    guardNewOption(seen, property, String(argument));
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
+  }
+
+  return input;
+}
+
+function getCreateProjectProperty(argument: string | undefined): keyof CreateProjectInput | null {
+  if (argument === '--name') {
+    return 'name';
+  }
+  return null;
+}
+
+function guardNewOption(seen: Set<string>, property: string, option: string): void {
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Unknown or repeated projects create option: ${option}`);
+  }
+
+  seen.add(property);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {

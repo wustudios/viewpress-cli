@@ -89,6 +89,25 @@ interface CreatePostArgument {
   seen: Set<string>;
 }
 
+interface AccountsListInput {
+  projectId: string | undefined;
+}
+
+interface ConnectInput {
+  platform: string | undefined;
+  projectId: string | undefined;
+}
+
+interface ListPostsInput {
+  limit: string;
+  projectId: string | undefined;
+}
+
+interface WaitPostInput {
+  pollInterval: string;
+  waitTimeout: string;
+}
+
 export async function runSocial(arguments_: string[]): Promise<number> {
   try {
     const resource = arguments_[0];
@@ -137,7 +156,7 @@ async function runAccounts(arguments_: string[]): Promise<void> {
 }
 
 async function listAccounts(arguments_: string[]): Promise<void> {
-  const options = getProjectOptions(arguments_, 'accounts list');
+  const options = getAccountsListOptions(arguments_);
   const query = new URLSearchParams({ project_id: options.projectId });
   const response = await getApiResponse({
     method: 'GET', path: 'social/accounts', query, schema: accountsResponseSchema,
@@ -178,18 +197,41 @@ function getConnectOptions(arguments_: string[]): {
   platform: z.infer<typeof platformSchema>;
   projectId: string;
 } {
-  const values = getNamedOptions(arguments_, ['--platform', '--project-id'], 'accounts connect');
-  const platform = platformSchema.safeParse(values.get('--platform'));
-  if (!values.get('--project-id')) {
+  const input = getConnectInput(arguments_);
+  if (!input.projectId) {
     throw new CommandUsageError('Social accounts connect requires --project-id.');
   }
+  const platform = platformSchema.safeParse(input.platform);
   if (!platform.success) {
     throw new CommandUsageError('Social accounts connect requires --platform tiktok, instagram, or youtube.');
   }
-  return {
-    platform: platform.data,
-    projectId: String(values.get('--project-id')),
-  };
+  return { platform: platform.data, projectId: input.projectId };
+}
+
+function getConnectInput(arguments_: string[]): ConnectInput {
+  const input: ConnectInput = { platform: undefined, projectId: undefined };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    const property = getConnectProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated social accounts connect option: ${String(argument)}`);
+    }
+    guardNewOption(seen, property, String(argument), 'accounts connect');
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
+  }
+  return input;
+}
+
+function getConnectProperty(argument: string | undefined): keyof ConnectInput | null {
+  if (argument === '--platform') {
+    return 'platform';
+  }
+  if (argument === '--project-id') {
+    return 'projectId';
+  }
+  return null;
 }
 
 async function runPosts(arguments_: string[]): Promise<void> {
@@ -409,17 +451,41 @@ async function listPosts(arguments_: string[]): Promise<void> {
 }
 
 function getListPostOptions(arguments_: string[]): { limit: number; projectId: string } {
-  const values = getNamedOptions(arguments_, ['--limit', '--project-id'], 'posts list');
-  const projectId = values.get('--project-id');
-  if (!projectId) {
+  const input = getListPostsInput(arguments_);
+  if (!input.projectId) {
     throw new CommandUsageError('Social posts list requires --project-id.');
   }
-  const limitValue = values.get('--limit') ?? '50';
-  const limit = Number(limitValue);
+  const limit = Number(input.limit);
   if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
     throw new CommandUsageError('Social posts --limit must be an integer from 1 to 200.');
   }
-  return { limit, projectId };
+  return { limit, projectId: input.projectId };
+}
+
+function getListPostsInput(arguments_: string[]): ListPostsInput {
+  const input: ListPostsInput = { limit: '50', projectId: undefined };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    const property = getListPostsProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated social posts list option: ${String(argument)}`);
+    }
+    guardNewOption(seen, property, String(argument), 'posts list');
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
+  }
+  return input;
+}
+
+function getListPostsProperty(argument: string | undefined): keyof ListPostsInput | null {
+  if (argument === '--limit') {
+    return 'limit';
+  }
+  if (argument === '--project-id') {
+    return 'projectId';
+  }
+  return null;
 }
 
 async function getPostCommand(arguments_: string[]): Promise<void> {
@@ -488,12 +554,38 @@ function getWaitOptions(arguments_: string[]): {
   waitTimeoutSec: number;
 } {
   const postId = getPostId(arguments_, 'wait');
-  const values = getNamedOptions(arguments_.slice(1), ['--poll-interval', '--wait-timeout'], 'posts wait');
+  const input = getWaitPostInput(arguments_.slice(1));
   return {
-    pollIntervalSec: getPositiveNumber(values.get('--poll-interval') ?? '2', '--poll-interval'),
+    pollIntervalSec: getPositiveNumber(input.pollInterval, '--poll-interval'),
     postId,
-    waitTimeoutSec: getPositiveNumber(values.get('--wait-timeout') ?? '600', '--wait-timeout'),
+    waitTimeoutSec: getPositiveNumber(input.waitTimeout, '--wait-timeout'),
   };
+}
+
+function getWaitPostInput(arguments_: string[]): WaitPostInput {
+  const input: WaitPostInput = { pollInterval: '2', waitTimeout: '600' };
+  const seen = new Set<string>();
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+    const property = getWaitPostProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated social posts wait option: ${String(argument)}`);
+    }
+    guardNewOption(seen, property, String(argument), 'posts wait');
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
+  }
+  return input;
+}
+
+function getWaitPostProperty(argument: string | undefined): keyof WaitPostInput | null {
+  if (argument === '--poll-interval') {
+    return 'pollInterval';
+  }
+  if (argument === '--wait-timeout') {
+    return 'waitTimeout';
+  }
+  return null;
 }
 
 async function cancelPost(arguments_: string[]): Promise<void> {
@@ -520,31 +612,35 @@ async function getPost(postId: string, timeoutMs?: number): Promise<z.infer<type
   });
 }
 
-function getProjectOptions(arguments_: string[], command: string): { projectId: string } {
-  const values = getNamedOptions(arguments_, ['--project-id'], command);
-  const projectId = values.get('--project-id');
-  if (!projectId) {
-    throw new CommandUsageError(`Social ${command} requires --project-id.`);
+function getAccountsListOptions(arguments_: string[]): { projectId: string } {
+  const input = getAccountsListInput(arguments_);
+  if (!input.projectId) {
+    throw new CommandUsageError('Social accounts list requires --project-id.');
   }
-  return { projectId };
+  return { projectId: input.projectId };
 }
 
-function getNamedOptions(
-  arguments_: string[],
-  names: string[],
-  command: string,
-): Map<string, string> {
-  const options = new Map<string, string>();
+function getAccountsListInput(arguments_: string[]): AccountsListInput {
+  const input: AccountsListInput = { projectId: undefined };
+  const seen = new Set<string>();
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
-    if (argument && names.includes(argument) && !options.has(argument)) {
-      options.set(argument, getOptionValue(arguments_, index, argument));
-      index += 1;
-      continue;
+    const property = getAccountsListProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated social accounts list option: ${String(argument)}`);
     }
-    throw new CommandUsageError(`Unknown or repeated social ${command} option: ${String(argument)}`);
+    guardNewOption(seen, property, String(argument), 'accounts list');
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
   }
-  return options;
+  return input;
+}
+
+function getAccountsListProperty(argument: string | undefined): keyof AccountsListInput | null {
+  if (argument === '--project-id') {
+    return 'projectId';
+  }
+  return null;
 }
 
 function guardNoExtraOptions(arguments_: string[], command: string): void {

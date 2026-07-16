@@ -228,12 +228,28 @@ function readMotionTransferValue(values: MotionTransferArgument): number {
 function getMotionTransferProperty(
   argument: string | undefined,
 ): keyof Omit<MotionTransferInput, 'keepOriginalSound'> | null {
-  const properties = {
-    '--character-orientation': 'characterOrientation', '--image-asset-id': 'imageAssetId',
-    '--motion-video-asset-id': 'motionVideoAssetId', '--name': 'name', '--prompt': 'prompt',
-    '--prompt-file': 'promptFile', '--video-id': 'videoId',
-  } as const;
-  return argument && argument in properties ? properties[argument as keyof typeof properties] : null;
+  if (argument === '--character-orientation') {
+    return 'characterOrientation';
+  }
+  if (argument === '--image-asset-id') {
+    return 'imageAssetId';
+  }
+  if (argument === '--motion-video-asset-id') {
+    return 'motionVideoAssetId';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--prompt') {
+    return 'prompt';
+  }
+  if (argument === '--prompt-file') {
+    return 'promptFile';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  return null;
 }
 
 async function runTalkingImage(arguments_: string[]): Promise<void> {
@@ -330,12 +346,28 @@ function readTalkingImageValue(values: TalkingImageArgument): number {
 function getTalkingImageProperty(
   argument: string | undefined,
 ): keyof Omit<TalkingImageInput, 'caption'> | null {
-  const properties = {
-    '--aspect-ratio': 'aspectRatio', '--audio-asset-id': 'audioAssetId',
-    '--image-asset-id': 'imageAssetId', '--name': 'name', '--resolution': 'resolution',
-    '--talking-style': 'talkingStyle', '--video-id': 'videoId',
-  } as const;
-  return argument && argument in properties ? properties[argument as keyof typeof properties] : null;
+  if (argument === '--aspect-ratio') {
+    return 'aspectRatio';
+  }
+  if (argument === '--audio-asset-id') {
+    return 'audioAssetId';
+  }
+  if (argument === '--image-asset-id') {
+    return 'imageAssetId';
+  }
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--resolution') {
+    return 'resolution';
+  }
+  if (argument === '--talking-style') {
+    return 'talkingStyle';
+  }
+  if (argument === '--video-id') {
+    return 'videoId';
+  }
+  return null;
 }
 
 async function runUgcAd(arguments_: string[]): Promise<void> {

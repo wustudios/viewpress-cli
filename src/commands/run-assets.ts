@@ -102,6 +102,11 @@ interface EnhanceAudioArgument {
   seen: Set<string>;
 }
 
+interface DownloadInput {
+  force: boolean;
+  output: string | undefined;
+}
+
 export async function runAssets(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -360,30 +365,35 @@ async function downloadAssetCommand(arguments_: string[]): Promise<void> {
 
 function getDownloadOptions(arguments_: string[]): { assetId: string; force: boolean; output: string } {
   const assetId = getAssetId(arguments_, 'download');
-  let force = false;
-  let output: string | undefined;
+  const input = getDownloadInput(arguments_.slice(1));
+
+  if (!input.output) {
+    throw new CommandUsageError('Assets download requires --output <path|->.');
+  }
+  return { assetId, force: input.force, output: input.output };
+}
+
+function getDownloadInput(arguments_: string[]): DownloadInput {
+  const input: DownloadInput = { force: false, output: undefined };
   const seen = new Set<string>();
 
-  for (let index = 1; index < arguments_.length; index += 1) {
+  for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
     if (argument === '--force') {
       guardNewOption(seen, 'force', argument);
-      force = true;
+      input.force = true;
       continue;
     }
     if (argument === '--output') {
       guardNewOption(seen, 'output', argument);
-      output = getOptionValue(arguments_, index, argument);
+      input.output = getOptionValue(arguments_, index, argument);
       index += 1;
       continue;
     }
     throw new CommandUsageError(`Unknown or repeated assets download option: ${String(argument)}`);
   }
 
-  if (!output) {
-    throw new CommandUsageError('Assets download requires --output <path|->.');
-  }
-  return { assetId, force, output };
+  return input;
 }
 
 async function addCaptions(arguments_: string[]): Promise<void> {

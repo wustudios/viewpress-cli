@@ -21,6 +21,15 @@ const videosResponseSchema = z.object({
 const videoResponseSchema = z.object({ id: z.string(), name: z.string(), url: z.string() });
 const videoNameSchema = z.string().min(1).max(120);
 
+interface ListVideosInput {
+  projectId: string | undefined;
+}
+
+interface CreateVideoInput {
+  name: string | undefined;
+  projectId: string | undefined;
+}
+
 export async function runVideos(arguments_: string[]): Promise<number> {
   try {
     const command = arguments_[0];
@@ -75,7 +84,7 @@ export async function runVideos(arguments_: string[]): Promise<number> {
 }
 
 async function listVideos(arguments_: string[]): Promise<void> {
-  const options = getVideoOptions(arguments_, false);
+  const options = getListVideosOptions(arguments_);
   const query = new URLSearchParams({ project_id: options.projectId });
   const response = await getApiResponse({ method: 'GET', path: 'videos', query, schema: videosResponseSchema });
 
@@ -95,7 +104,7 @@ async function listVideos(arguments_: string[]): Promise<void> {
 }
 
 async function createVideo(arguments_: string[]): Promise<void> {
-  const options = getVideoOptions(arguments_, true);
+  const options = getCreateVideoOptions(arguments_);
   const response = await getApiResponse({
     body: { name: options.name, project_id: options.projectId },
     method: 'POST',
@@ -111,32 +120,90 @@ async function createVideo(arguments_: string[]): Promise<void> {
   process.stdout.write(`Created video ${response.name} (${response.id}).\n${response.url}\n`);
 }
 
-function getVideoOptions(
-  arguments_: string[],
-  needsName: boolean,
-): { name?: string; projectId: string } {
-  let name: string | undefined;
-  let projectId: string | undefined;
+function getListVideosOptions(arguments_: string[]): { projectId: string } {
+  const input = getListVideosInput(arguments_);
+  if (!input.projectId) {
+    throw new CommandUsageError('Videos commands require --project-id.');
+  }
+
+  return { projectId: input.projectId };
+}
+
+function getListVideosInput(arguments_: string[]): ListVideosInput {
+  const input: ListVideosInput = { projectId: undefined };
+  const seen = new Set<string>();
 
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index];
 
-    if (argument === '--project-id' && projectId === undefined) {
-      projectId = getOptionValue(arguments_, index, '--project-id');
-      index += 1;
-      continue;
+    const property = getListVideosProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated videos option: ${String(argument)}`);
     }
-
-    if (needsName && argument === '--name' && name === undefined) {
-      name = getOptionValue(arguments_, index, '--name');
-      index += 1;
-      continue;
-    }
-
-    throw new CommandUsageError(`Unknown or repeated videos option: ${String(argument)}`);
+    guardNewOption(seen, property, String(argument));
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
   }
 
-  return getValidatedVideoOptions({ name, needsName, projectId });
+  return input;
+}
+
+function getListVideosProperty(argument: string | undefined): keyof ListVideosInput | null {
+  if (argument === '--project-id') {
+    return 'projectId';
+  }
+  return null;
+}
+
+function getCreateVideoOptions(arguments_: string[]): { name: string; projectId: string } {
+  const input = getCreateVideoInput(arguments_);
+  if (!input.projectId) {
+    throw new CommandUsageError('Videos commands require --project-id.');
+  }
+
+  const parsedName = videoNameSchema.safeParse(input.name);
+  if (!parsedName.success) {
+    throw new CommandUsageError('Videos create requires --name with 1 to 120 characters.');
+  }
+
+  return { name: parsedName.data, projectId: input.projectId };
+}
+
+function getCreateVideoInput(arguments_: string[]): CreateVideoInput {
+  const input: CreateVideoInput = { name: undefined, projectId: undefined };
+  const seen = new Set<string>();
+
+  for (let index = 0; index < arguments_.length; index += 1) {
+    const argument = arguments_[index];
+
+    const property = getCreateVideoProperty(argument);
+    if (!property) {
+      throw new CommandUsageError(`Unknown or repeated videos option: ${String(argument)}`);
+    }
+    guardNewOption(seen, property, String(argument));
+    input[property] = getOptionValue(arguments_, index, String(argument));
+    index += 1;
+  }
+
+  return input;
+}
+
+function getCreateVideoProperty(argument: string | undefined): keyof CreateVideoInput | null {
+  if (argument === '--name') {
+    return 'name';
+  }
+  if (argument === '--project-id') {
+    return 'projectId';
+  }
+  return null;
+}
+
+function guardNewOption(seen: Set<string>, property: string, option: string): void {
+  if (seen.has(property)) {
+    throw new CommandUsageError(`Unknown or repeated videos option: ${option}`);
+  }
+
+  seen.add(property);
 }
 
 function getOptionValue(arguments_: string[], index: number, optionName: string): string {
@@ -147,28 +214,6 @@ function getOptionValue(arguments_: string[], index: number, optionName: string)
   }
 
   return value;
-}
-
-function getValidatedVideoOptions(options: {
-  name: string | undefined;
-  needsName: boolean;
-  projectId: string | undefined;
-}): { name?: string; projectId: string } {
-  if (!options.projectId) {
-    throw new CommandUsageError('Videos commands require --project-id.');
-  }
-
-  if (!options.needsName) {
-    return { projectId: options.projectId };
-  }
-
-  const parsedName = videoNameSchema.safeParse(options.name);
-
-  if (!parsedName.success) {
-    throw new CommandUsageError('Videos create requires --name with 1 to 120 characters.');
-  }
-
-  return { name: parsedName.data, projectId: options.projectId };
 }
 
 function showVideosHelp(): void {
