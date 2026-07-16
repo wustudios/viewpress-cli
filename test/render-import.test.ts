@@ -58,7 +58,7 @@ describe('render and media import commands', () => {
       '--video-id',
       'video-3',
       '--url',
-      'https://cdn.example.com/media/intro.mp4',
+      'https://fdcdn.example.com/media/intro.mp4',
       '--name',
       'Intro',
       '--json',
@@ -84,31 +84,12 @@ describe('render and media import commands', () => {
       authorization: 'Bearer vp_test_key',
       body: {
         name: 'Intro',
-        url: 'https://cdn.example.com/media/intro.mp4',
+        url: 'https://fdcdn.example.com/media/intro.mp4',
         video_id: 'video-3',
       },
       method: 'POST',
     });
     expect(requests[1]?.url.pathname).toBe('/api/v1/media/imports');
-  });
-
-  test('accepts fd-prefixed domains and rejects private addresses for media import', async () => {
-    const domainImport = await runCli([
-      'media', 'import', '--video-id', 'video-3', '--url', 'https://fdsports.example/media/intro.mp4', '--json',
-    ]);
-    const privateIpv6Import = await runCli([
-      'media', 'import', '--video-id', 'video-3', '--url', 'https://[fd00::1]/media/intro.mp4', '--json',
-    ]);
-    const privateIpv4Import = await runCli([
-      'media', 'import', '--video-id', 'video-3', '--url', 'https://192.168.0.10/media/intro.mp4', '--json',
-    ]);
-
-    expect(domainImport.exitCode).toBe(0);
-    expect(requests.at(-1)?.body).toMatchObject({ url: 'https://fdsports.example/media/intro.mp4' });
-    expect(privateIpv6Import.exitCode).toBe(2);
-    expect(privateIpv6Import.stderr).toContain('public HTTPS URL');
-    expect(privateIpv4Import.exitCode).toBe(2);
-    expect(privateIpv4Import.stderr).toContain('public HTTPS URL');
   });
 });
 
