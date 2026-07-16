@@ -27,7 +27,7 @@ export async function runAuth(arguments_: string[]): Promise<number> {
   }
 
   if (arguments_.length > 1) {
-    return writeError(new CommandUsageError('Auth commands do not accept additional arguments.', getAuthCommandPath(command)));
+    return writeError(new CommandUsageError(`Unexpected argument: ${String(arguments_[1])}`, getAuthCommandPath(command)));
   }
 
   try {
