@@ -10,7 +10,7 @@ import { CommandUsageError } from './command-usage-error.ts';
 export async function runAuth(arguments_: string[]): Promise<number> {
   const command = arguments_[0];
 
-  if (command === '--help') {
+  if (command === undefined || command === '--help') {
     if (getRuntimeOptions().json) {
       return writeError(new CommandUsageError('An auth command is required with --json.', 'auth'));
     }
@@ -47,14 +47,6 @@ export async function runAuth(arguments_: string[]): Promise<number> {
 
     if (command === 'logout') {
       await authLogout();
-      return 0;
-    }
-
-    if (command === undefined) {
-      if (getRuntimeOptions().json) {
-        return writeError(new CommandUsageError('An auth command is required with --json.', 'auth'));
-      }
-      showAuthHelp();
       return 0;
     }
 
