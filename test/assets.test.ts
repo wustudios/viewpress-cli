@@ -97,7 +97,7 @@ describe('asset commands', () => {
     expect(get).toEqual({
       exitCode: 0,
       stderr: '',
-      stdout: `asset-ready\tslideshow\tready\tLaunch\t${server.url.href}files/good\n`,
+      stdout: `asset-ready\tslideshow\tready\tLaunch\t2023-11-14T22:13:20.000Z\t${server.url.href}files/good\n`,
     });
     expect(wait).toEqual({
       exitCode: 0,

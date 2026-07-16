@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getApiResponse } from '../api/get-api-response.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeTable } from '../output/write-table.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
@@ -77,14 +78,19 @@ async function listStyles(arguments_: string[]): Promise<void> {
     return;
   }
 
-  for (const style of response.videoStyles) {
-    const duration = `${String(style.durationSec.min)}-${String(style.durationSec.max)}s`;
-    process.stdout.write(`${style.code}\t${style.label}\t${duration}\t${String(style.creditsPerSecond)} credits/s\n`);
+  if (response.videoStyles.length === 0 && response.imageModels.length === 0) {
+    process.stdout.write('No styles.\n');
+    return;
   }
 
-  for (const model of response.imageModels) {
-    process.stdout.write(`${model.code}\timage\t${String(model.credits)} credits\n`);
-  }
+  const styleRows = response.videoStyles.map((style) => [
+    style.code,
+    style.label,
+    `${String(style.durationSec.min)}-${String(style.durationSec.max)}s`,
+    `${String(style.creditsPerSecond)} credits/s`,
+  ]);
+  const modelRows = response.imageModels.map((model) => [model.code, 'image', '-', `${String(model.credits)} credits`]);
+  writeTable([...styleRows, ...modelRows]);
 }
 
 function guardNoArguments(arguments_: string[]): void {

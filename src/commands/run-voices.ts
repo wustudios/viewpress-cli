@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getApiResponse } from '../api/get-api-response.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeTable } from '../output/write-table.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
@@ -92,13 +93,20 @@ async function listVoices(arguments_: string[]): Promise<void> {
     return;
   }
 
-  for (const voice of response.voices) {
-    process.stdout.write(`${voice.id}\t${voice.name}\t${voice.gender ?? ''}\t${voice.language ?? ''}\n`);
+  if (response.voices.length === 0 && response.presets.length === 0) {
+    process.stdout.write('No voices.\n');
+    return;
   }
 
-  for (const preset of response.presets) {
-    process.stdout.write(`preset\t${preset}\n`);
-  }
+  const voiceRows = response.voices.map((voice) => [
+    voice.id,
+    voice.name,
+    voice.type ?? '-',
+    voice.gender ?? '-',
+    voice.language ?? '-',
+  ]);
+  const presetRows = response.presets.map((preset) => [preset, preset, 'preset', '-', '-']);
+  writeTable([...voiceRows, ...presetRows]);
 }
 
 function getVoiceOptions(arguments_: string[]): VoiceOptions {

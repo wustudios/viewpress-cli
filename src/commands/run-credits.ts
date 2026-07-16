@@ -62,7 +62,7 @@ async function getCredits(arguments_: string[]): Promise<void> {
   }
 
   process.stdout.write(
-    `Total: ${String(response.total)}\nAvailable: ${String(response.available)}\nHeld: ${String(response.held)}\n`,
+    `Total: ${String(response.total)} credits\nAvailable: ${String(response.available)} credits\nHeld: ${String(response.held)} credits\n`,
   );
 }
 

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getApiResponse } from '../api/get-api-response.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeTable } from '../output/write-table.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 import { runVideoGeneration } from './run-video-generation.ts';
@@ -118,9 +119,12 @@ async function listVideos(arguments_: string[]): Promise<void> {
     return;
   }
 
-  for (const video of response.videos) {
-    process.stdout.write(`${video.id}\t${video.name}\t${video.createdAt}\t${video.url}\n`);
-  }
+  writeTable(response.videos.map((video) => [
+    video.id,
+    video.name,
+    new Date(video.createdAt).toISOString(),
+    video.url,
+  ]));
 }
 
 async function createVideo(arguments_: string[]): Promise<void> {

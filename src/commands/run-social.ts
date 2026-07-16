@@ -6,6 +6,7 @@ import { getApiResponse } from '../api/get-api-response.ts';
 import { CliError } from '../cli/cli-error.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeTable } from '../output/write-table.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
@@ -200,11 +201,13 @@ async function listAccounts(arguments_: string[]): Promise<void> {
     process.stdout.write('No social accounts.\n');
     return;
   }
-  for (const account of response.accounts) {
-    process.stdout.write(
-      `${account.id}\t${account.platform}\t${account.username ?? account.displayName ?? '-'}\t${account.disabled ? 'disabled' : 'connected'}\n`,
-    );
-  }
+  writeTable(response.accounts.map((account) => [
+    account.id,
+    account.platform,
+    account.username ?? account.displayName ?? '-',
+    account.disabled ? 'disabled' : 'connected',
+    new Date(account.connectedAt).toISOString(),
+  ]));
 }
 
 async function connectAccount(arguments_: string[]): Promise<void> {
@@ -490,9 +493,7 @@ async function listPosts(arguments_: string[]): Promise<void> {
     process.stdout.write('No social posts.\n');
     return;
   }
-  for (const post of response.posts) {
-    writePostLine(post);
-  }
+  writeTable(response.posts.map(getPostRow));
 }
 
 function getListPostOptions(arguments_: string[]): { limit: number; projectId: string } {
@@ -750,13 +751,18 @@ function writePost(post: z.infer<typeof postSchema>): void {
     writeJson(post);
     return;
   }
-  writePostLine(post);
+  writeTable([getPostRow(post)]);
 }
 
-function writePostLine(post: z.infer<typeof postSchema>): void {
-  process.stdout.write(
-    `${post.id}\t${post.platform}\t${post.state}\t${post.accountUsername ?? post.accountId}\t${post.platformPostUrl ?? '-'}\n`,
-  );
+function getPostRow(post: z.infer<typeof postSchema>): string[] {
+  return [
+    post.id,
+    post.platform,
+    post.state,
+    post.accountUsername ?? post.accountId,
+    new Date(post.publishAt).toISOString(),
+    post.platformPostUrl ?? '-',
+  ];
 }
 
 function writeWaitNotice(post: z.infer<typeof postSchema>): void {

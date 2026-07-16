@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getApiResponse } from '../api/get-api-response.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeTable } from '../output/write-table.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 
@@ -83,9 +84,11 @@ async function listProjects(arguments_: string[]): Promise<void> {
     return;
   }
 
-  for (const project of response.projects) {
-    process.stdout.write(`${project.id}\t${project.name}\t${new Date(project.createdAt).toISOString()}\n`);
-  }
+  writeTable(response.projects.map((project) => [
+    project.id,
+    project.name,
+    new Date(project.createdAt).toISOString(),
+  ]));
 }
 
 async function createProject(arguments_: string[]): Promise<void> {

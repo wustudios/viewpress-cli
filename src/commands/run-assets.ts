@@ -4,6 +4,7 @@ import { getApiResponse } from '../api/get-api-response.ts';
 import { CliError } from '../cli/cli-error.ts';
 import { getRuntimeOptions } from '../cli/runtime-options.ts';
 import { writeJson } from '../output/write-json.ts';
+import { writeTable } from '../output/write-table.ts';
 import { writeError } from '../output/write-error.ts';
 import { CommandUsageError } from './command-usage-error.ts';
 import { downloadAsset } from './download-asset.ts';
@@ -218,9 +219,7 @@ async function listAssets(arguments_: string[]): Promise<void> {
     process.stdout.write('No assets.\n');
     return;
   }
-  for (const asset of response.assets) {
-    writeAssetLine(asset);
-  }
+  writeTable(response.assets.map(getAssetRow));
 }
 
 function getListOptions(arguments_: string[]): AssetListOptions {
@@ -781,11 +780,18 @@ function writeAsset(asset: z.infer<typeof assetSchema>): void {
     writeJson(asset);
     return;
   }
-  writeAssetLine(asset);
+  writeTable([getAssetRow(asset)]);
 }
 
-function writeAssetLine(asset: z.infer<typeof assetSchema>): void {
-  process.stdout.write(`${asset.id}\t${asset.kind}\t${asset.status}\t${asset.name ?? '-'}\t${asset.url ?? '-'}\n`);
+function getAssetRow(asset: z.infer<typeof assetSchema>): string[] {
+  return [
+    asset.id,
+    asset.kind,
+    asset.status,
+    asset.name ?? '-',
+    new Date(asset.createdAt).toISOString(),
+    asset.url ?? '-',
+  ];
 }
 
 function writeWaitNotice(asset: z.infer<typeof assetSchema>): void {
