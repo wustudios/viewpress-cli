@@ -10,11 +10,10 @@ jobs:
   check:
     strategy:
       matrix:
-        os:
-          - macos-latest
-          - ubuntu-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
+        runner:
+          - [self-hosted, macOS]
+          - [self-hosted, Linux]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
